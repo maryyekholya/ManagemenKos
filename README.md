@@ -16,5 +16,5 @@ Proyek ini dikerjakan oleh:
 
 Yudi
 Mary
-Alex
+Alex 2372050
 King
