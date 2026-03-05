@@ -10,8 +10,8 @@ Mengelola data kamar kos
 Mencatat data penyewa
 Mengelola pembayaran sewa
 Melihat laporan transaksi
-Anggota Kelompok
 
+**Anggota Kelompok**
 Proyek ini dikerjakan oleh:
 
 Yudi
