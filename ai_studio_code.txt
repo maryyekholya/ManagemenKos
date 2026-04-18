@@ -1,0 +1,133 @@
+import React, { useState, useMemo } from 'react';
+
+const GuestLanding = () => {
+  // [SINGLETON] Akses repository terpusat
+  const repo = KamarRepository.getInstance();
+  const [activeType, setActiveType] = useState("ALL");
+  const [currentStrategy] = useState("NORMAL"); // Bisa diubah dari admin nanti
+
+  // [STRATEGY: Filter & Pricing] 
+  const processedRooms = useMemo(() => {
+    let filtered = FilterStrategies.BY_TYPE(repo.getAllRooms(), activeType);
+    return filtered.map(room => ({
+      ...room,
+      displayPrice: PricingStrategies[currentStrategy](room.price)
+    }));
+  }, [activeType, currentStrategy]);
+
+  return (
+    <div className="min-h-screen bg-[#f8fafc] font-['Plus_Jakarta_Sans'] text-[#0f172a]">
+      {/* Navbar */}
+      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#e2e8f0] px-6 py-4">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-[#059669] tracking-tight">NestIn.</h1>
+          <button className="text-sm font-semibold px-5 py-2 rounded-lg border border-[#e2e8f0] hover:bg-slate-50 transition-all">
+            Cek Booking Saya
+          </button>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <header className="px-6 pt-16 pb-12 max-w-7xl mx-auto">
+        <div className="max-w-2xl">
+          <h2 className="text-5xl md:text-6xl font-['DM_Serif_Display'] leading-[1.1] mb-6">
+            Temukan <span className="italic text-[#059669]">kenyamanan</span> hunian yang tepat untuk produktivitasmu.
+          </h2>
+          <p className="text-[#64748b] text-lg max-w-md">
+            Proses booking transparan, manajemen modern, dan fasilitas terkurasi di satu lokasi eksklusif.
+          </p>
+        </div>
+      </header>
+
+      {/* Filter Bar - [STRATEGY: FilterStrategy] */}
+      <section className="px-6 mb-12 max-w-7xl mx-auto">
+        <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
+          {['ALL', 'Tunggal', 'Double', 'VIP'].map((type) => (
+            <button
+              key={type}
+              onClick={() => setActiveType(type)}
+              className={`px-6 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                activeType === type 
+                ? 'bg-[#059669] text-white shadow-md shadow-emerald-200' 
+                : 'bg-white border border-[#e2e8f0] text-[#64748b] hover:border-[#059669]'
+              }`}
+            >
+              {type === 'ALL' ? 'Semua Tipe' : type}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Room List Grid */}
+      <main className="px-6 pb-24 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {processedRooms.map((room) => (
+            <div key={room.id} className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border border-[#e2e8f0]">
+              {/* Image & State Badge */}
+              <div className="relative h-64 overflow-hidden">
+                <img 
+                  src={room.image} 
+                  alt={room.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                {/* [STATE VISUALIZATION] */}
+                <div className={`absolute top-4 left-4 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase shadow-sm ${
+                  room.status === 'TERSEDIA' ? 'bg-[#d1fae5] text-[#059669]' : 
+                  room.status === 'DIPESAN' ? 'bg-[#fef3c7] text-[#d97706]' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {room.status}
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="text-xl font-bold">{room.name}</h3>
+                  <span className="text-[12px] font-mono text-[#64748b] bg-slate-50 px-2 py-1 rounded">{room.type}</span>
+                </div>
+                
+                <div className="flex gap-2 mb-6">
+                  {room.features.map(f => (
+                    <span key={f} className="text-[11px] text-[#64748b] border border-[#e2e8f0] px-2 py-0.5 rounded">
+                      {f}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="flex items-end justify-between border-t border-[#f1f5f9] pt-6">
+                  <div>
+                    <p className="text-[12px] text-[#64748b] leading-none mb-1">Mulai dari</p>
+                    <p className="font-['JetBrains_Mono'] text-lg font-bold text-[#0f172a]">
+                      Rp {room.displayPrice.toLocaleString('id-ID')}
+                      <span className="text-sm font-normal text-[#64748b]">/bln</span>
+                    </p>
+                  </div>
+                  
+                  <button 
+                    disabled={room.status !== 'TERSEDIA'}
+                    className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-all ${
+                      room.status === 'TERSEDIA'
+                      ? 'bg-[#059669] text-white hover:bg-[#047857] active:scale-95'
+                      : 'bg-[#e2e8f0] text-[#94a3b8] cursor-not-allowed'
+                    }`}
+                  >
+                    Pesan Sekarang
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Empty State */}
+        {processedRooms.length === 0 && (
+          <div className="py-20 text-center bg-white rounded-2xl border-2 border-dashed border-[#e2e8f0]">
+            <p className="text-[#64748b]">Tidak ada kamar yang sesuai kriteria pencarianmu.</p>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+};
+
+export default GuestLanding;
