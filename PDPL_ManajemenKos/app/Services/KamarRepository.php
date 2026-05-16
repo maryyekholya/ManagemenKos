@@ -2,24 +2,28 @@
 
 namespace App\Services;
 
+use App\Models\Kamar;
+use Illuminate\Support\Collection;
+
 /**
  * [SINGLETON PATTERN]
- * KamarRepository: Satu pintu akses data kamar
- * Memastikan data yang ditarik konsisten di seluruh aplikasi
- * tanpa melakukan re-fetch yang tidak perlu
+ * KamarRepository: Satu pintu akses data kamar dari database.
+ * Memastikan data konsisten di seluruh aplikasi dengan caching in-memory.
+ * Kini menggunakan Eloquent Model (Kamar) sebagai sumber data utama.
  */
 class KamarRepository
 {
     private static ?self $instance = null;
-    private array $rooms = [];
+    private ?Collection $cache = null; // In-memory cache
 
     private function __construct()
     {
-        $this->initializeRooms();
+        // Private constructor — hanya bisa dibuat via getInstance()
     }
 
     /**
-     * Mendapatkan instance tunggal dari KamarRepository
+     * Mendapatkan instance tunggal dari KamarRepository.
+     * [SINGLETON] — satu instance sepanjang lifecycle request.
      */
     public static function getInstance(): self
     {
@@ -30,90 +34,76 @@ class KamarRepository
     }
 
     /**
-     * Inisialisasi data kamar (simulasi atau dari database)
+     * Mendapatkan semua kamar.
+     * Menggunakan in-memory cache untuk menghindari query berulang.
      */
-    private function initializeRooms(): void
+    public function getAllRooms(): Collection
     {
-        $this->rooms = [
-            [
-                'id' => 1,
-                'name' => 'Kamar A1',
-                'type' => 'Tunggal',
-                'price' => 1500000,
-                'status' => 'TERSEDIA',
-                'features' => ['WiFi', 'AC'],
-                'image' => 'https://images.unsplash.com/photo-1522771739844-649f6d175d97?auto=format&fit=crop&q=80&w=800'
-            ],
-            [
-                'id' => 2,
-                'name' => 'Kamar B5',
-                'type' => 'Double',
-                'price' => 2200000,
-                'status' => 'DIPESAN',
-                'features' => ['WiFi', 'AC', 'KM Dalam'],
-                'image' => 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&q=80&w=800'
-            ],
-            [
-                'id' => 3,
-                'name' => 'Kamar C2',
-                'type' => 'VIP',
-                'price' => 3500000,
-                'status' => 'TERSEDIA',
-                'features' => ['WiFi', 'AC', 'KM Dalam', 'TV'],
-                'image' => 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&q=80&w=800'
-            ],
-        ];
-    }
-
-    /**
-     * Mendapatkan semua kamar
-     */
-    public function getAllRooms(): array
-    {
-        return $this->rooms;
-    }
-
-    /**
-     * Mendapatkan kamar berdasarkan ID
-     */
-    public function getRoomById(int $id): ?array
-    {
-        foreach ($this->rooms as $room) {
-            if ($room['id'] === $id) {
-                return $room;
-            }
+        if ($this->cache === null) {
+            $this->cache = Kamar::orderBy('nomor')->get();
         }
-        return null;
+        return $this->cache;
     }
 
     /**
-     * Filter kamar berdasarkan tipe
+     * Mendapatkan kamar berdasarkan ID.
      */
-    public function filterByType(string $type): array
+    public function getRoomById(int $id): ?Kamar
     {
-        if ($type === 'ALL') {
-            return $this->rooms;
+        return $this->getAllRooms()->firstWhere('id', $id);
+    }
+
+    /**
+     * Mendapatkan kamar yang tersedia.
+     */
+    public function getAvailableRooms(): Collection
+    {
+        return $this->getAllRooms()->where('status', 'TERSEDIA')->values();
+    }
+
+    /**
+     * Filter kamar berdasarkan tipe.
+     */
+    public function filterByType(string $type): Collection
+    {
+        if ($type === 'All' || $type === 'ALL') {
+            return $this->getAllRooms();
         }
-        return array_filter($this->rooms, fn($room) => $room['type'] === $type);
+        return $this->getAllRooms()->where('tipe', $type)->values();
     }
 
     /**
-     * Filter kamar berdasarkan harga maksimal
+     * Filter kamar berdasarkan harga maksimal.
      */
-    public function filterByMaxPrice(int $maxPrice): array
+    public function filterByMaxPrice(int $maxPrice): Collection
     {
-        return array_filter($this->rooms, fn($room) => $room['price'] <= $maxPrice);
+        return $this->getAllRooms()->filter(fn($room) => $room->harga_dasar <= $maxPrice)->values();
     }
 
     /**
-     * Mencegah kloning instance
+     * Hapus cache — dipanggil setelah create/update/delete kamar.
      */
+    public function clearCache(): void
+    {
+        $this->cache = null;
+    }
+
+    /**
+     * Kompatibilitas backward dengan RoomController (mengembalikan array).
+     */
+    public function getAllRoomsAsArray(): array
+    {
+        return $this->getAllRooms()->toArray();
+    }
+
+    // ─── Singleton protection ─────────────────────────────────
+
+    /** Mencegah kloning instance */
     private function __clone() {}
 
-    /**
-     * Mencegah unserialize instance
-     */
-    public function __wakeup() {
-        throw new \Exception("Tidak bisa unserialize singleton");
+    /** Mencegah unserialize instance */
+    public function __wakeup()
+    {
+        throw new \Exception("Tidak bisa unserialize Singleton KamarRepository");
     }
 }
