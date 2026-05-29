@@ -61,6 +61,8 @@ function appReducer(state: AppState, action: any): AppState {
     case 'LOGOUT': return { ...state, currentUser: null, currentView: 'landing' };
     case 'SET_VIEW': return { ...state, currentView: action.payload };
     case 'UPDATE_KAMAR': return { ...state, kamars: state.kamars.map(k => k.id === action.payload.id ? { ...k, ...action.payload.data } : k) };
+    case 'ADD_KAMAR': return { ...state, kamars: [...state.kamars, action.payload] };
+    case 'DELETE_KAMAR': return { ...state, kamars: state.kamars.filter(k => k.id !== action.payload) };
     case 'ADD_BOOKING': return { ...state, bookings: [action.payload, ...state.bookings] };
     case 'UPDATE_BOOKING': return { ...state, bookings: state.bookings.map(b => b.id === action.payload.id ? { ...b, ...action.payload.data } : b) };
     case 'ADD_PAYMENT': return { ...state, payments: [action.payload, ...state.payments] };
@@ -302,7 +304,7 @@ export default function App() {
         }}
       />
       <main className="min-h-screen">
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={false}>
           <PageTransition pageKey={state.currentView}>
             {renderView()}
           </PageTransition>
@@ -323,64 +325,96 @@ const LoginPage: React.FC<{
 }> = ({ onLogin, onRegisterOpen, onCancel }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleLogin = () => {
+    setError('');
+    if (!email || !password) { setError('Email dan password wajib diisi.'); return; }
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      onLogin(email, password);
+    }, 400);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="hidden lg:flex flex-1 bg-slate-100 items-center justify-center p-20 relative overflow-hidden">
+      {/* ── Branding Panel ── */}
+      <motion.div
+        initial={{ opacity: 0, x: -40 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ type: 'spring', stiffness: 200, damping: 25, delay: 0.05 }}
+        className="hidden lg:flex flex-1 bg-slate-100 items-center justify-center p-20 relative overflow-hidden"
+      >
         <div className="absolute top-0 right-0 w-96 h-96 bg-slate-200 rounded-full -translate-y-1/2 translate-x-1/2 opacity-20" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-slate-200 rounded-full translate-y-1/2 -translate-x-1/2 opacity-20" />
-        
-        <div className="relative z-10 space-y-8 text-slate-900 max-w-lg">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.6, ease: 'easeOut' }}
+          className="relative z-10 space-y-8 text-slate-900 max-w-lg"
+        >
            <div className="flex items-center gap-4">
               <span className="text-4xl font-bold lowercase tracking-tight">nestin</span>
            </div>
            <h2 className="display-text !text-4xl">Your minimalist management <span>experience begins here.</span></h2>
            <p className="text-slate-500 text-lg">Platform manajemen property terlengkap untuk pemilik dan tenant modern di Indonesia.</p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
       
-      <div className="flex-1 bg-white flex items-center justify-center p-8">
+      {/* ── Form Panel ── */}
+      <motion.div
+        initial={{ opacity: 0, x: 40 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ type: 'spring', stiffness: 200, damping: 25, delay: 0.05 }}
+        className="flex-1 bg-white flex items-center justify-center p-8"
+      >
         <div className="w-full max-w-md space-y-8">
-          <div>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+          >
             <h3 className="text-3xl font-bold font-sans">Selamat Datang</h3>
             <p className="text-slate-500 mt-2">Silakan masuk untuk melanjutkan akses NestIn.</p>
-          </div>
+          </motion.div>
 
-          <div className="space-y-4">
-            <FormInput label="Email" placeholder="admin@nestin.id" value={email} onChange={e => setEmail(e.target.value)} />
-            <FormInput label="Password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.28, duration: 0.5 }}
+            className="space-y-4"
+          >
+            <FormInput label="Email" placeholder="Masukkan email Anda" value={email} onChange={e => { setEmail(e.target.value); setError(''); }} />
+            <FormInput label="Password" type="password" placeholder="••••••••" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} />
+            
+            {error && (
+              <motion.p
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-xs text-red-600 font-medium bg-red-50 border border-red-100 px-4 py-2.5 rounded-xl"
+              >
+                {error}
+              </motion.p>
+            )}
+
             <div className="flex justify-between items-center text-sm font-bold">
-               <button className="text-emerald-600">Lupa Password?</button>
-               <button onClick={onCancel} className="text-slate-400">Kembali ke Beranda</button>
+               <button className="text-emerald-600 hover:underline">Lupa Password?</button>
+               <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 transition-colors">Kembali ke Beranda</button>
             </div>
-            <Button className="w-full py-4 text-lg" onClick={() => onLogin(email, password)}>Masuk</Button>
+            <Button
+              className={`w-full py-4 text-lg transition-all ${ isLoading ? 'opacity-70 cursor-wait' : '' }`}
+              onClick={handleLogin}
+            >
+              {isLoading ? 'Memproses...' : 'Masuk'}
+            </Button>
             <p className="text-center text-sm text-slate-500">
                Belum memiliki akun? <button onClick={onRegisterOpen} className="text-emerald-600 font-bold hover:underline">Daftar Sekarang</button>
             </p>
-          </div>
-
-          <div className="relative">
-             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100" /></div>
-             <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-slate-400 font-bold tracking-widest">Akun Demo</span></div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-2">
-            {DEMO_USERS.map(u => (
-              <button 
-                key={u.email}
-                onClick={() => { setEmail(u.email); setPassword(u.password); }}
-                className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all text-left"
-              >
-                <div>
-                   <p className="text-sm font-bold capitalize">{u.role}</p>
-                   <p className="text-[10px] text-slate-400 font-mono">{u.email}</p>
-                </div>
-                <LogIn className="w-4 h-4 text-slate-300" />
-              </button>
-            ))}
-          </div>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };
@@ -460,18 +494,28 @@ const RegisterPage: React.FC<{
         </div>
       </Modal>
 
-      <div className="hidden lg:flex flex-1 bg-slate-900 items-center justify-center p-20 relative overflow-hidden">
+      {/* ── Branding Panel ── */}
+      <motion.div
+        initial={{ opacity: 0, x: 40 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ type: 'spring', stiffness: 200, damping: 25, delay: 0.05 }}
+        className="hidden lg:flex flex-1 bg-slate-900 items-center justify-center p-20 relative overflow-hidden"
+      >
         <div className="absolute top-0 right-0 w-96 h-96 bg-slate-800 rounded-full -translate-y-1/2 translate-x-1/2 opacity-20" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-slate-800 rounded-full translate-y-1/2 -translate-x-1/2 opacity-20" />
-        
-        <div className="relative z-10 space-y-8 text-white max-w-lg">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.6, ease: 'easeOut' }}
+          className="relative z-10 space-y-8 text-white max-w-lg"
+        >
            <div className="flex items-center gap-4">
               <span className="text-4xl font-bold lowercase tracking-tight">nestin</span>
            </div>
            <h2 className="display-text !text-4xl text-white">Join the future of <br/><span>property management.</span></h2>
            <p className="text-slate-400 text-lg">Daftar sekarang untuk mulai mencari dan melakukan booking kamar kos impian Anda dengan mudah.</p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
       
       <div className="flex-1 bg-white flex items-center justify-center p-8">
         <div className="w-full max-w-md space-y-8">
