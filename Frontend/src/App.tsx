@@ -225,7 +225,6 @@ export default function App() {
           dispatch={dispatch}
           onBook={(k) => {
             if (!state.currentUser) {
-              // Redirect to register instead of login as per user request
               dispatch({ type: 'SET_VIEW', payload: 'register' });
             } else {
               setBookingTarget(k);
@@ -326,13 +325,7 @@ const LoginPage: React.FC<{
   const [password, setPassword] = useState('');
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
-      className="fixed inset-0 z-50 flex"
-    >
+    <div className="fixed inset-0 z-50 flex">
       <div className="hidden lg:flex flex-1 bg-slate-100 items-center justify-center p-20 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-slate-200 rounded-full -translate-y-1/2 translate-x-1/2 opacity-20" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-slate-200 rounded-full translate-y-1/2 -translate-x-1/2 opacity-20" />
@@ -388,7 +381,7 @@ const LoginPage: React.FC<{
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
@@ -446,13 +439,7 @@ const RegisterPage: React.FC<{
   const [password, setPassword] = useState('');
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
-      className="fixed inset-0 z-50 flex"
-    >
+    <div className="fixed inset-0 z-50 flex">
       {/* Success Modal */}
       <Modal 
         isOpen={registrationSuccess} 
@@ -517,6 +504,6 @@ const RegisterPage: React.FC<{
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };

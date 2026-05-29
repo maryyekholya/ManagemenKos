@@ -38,7 +38,7 @@ const variantAnimations = {
 
 const defaultTransition = {
   type: 'tween',
-  duration: 0.4,
+  duration: 0.7,
   ease: 'easeInOut',
 };
 
