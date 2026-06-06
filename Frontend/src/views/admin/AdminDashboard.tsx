@@ -110,14 +110,60 @@ const Overview: React.FC<{ stats: ReturnType<typeof calculateStats> }> = ({ stat
 
 const AdminPembayaran: React.FC = () => {
   const { state } = useApp();
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'date_desc'|'date_asc'|'amount_desc'|'amount_asc'>('date_desc');
+
+  let filteredPayments = [...state.payments];
+
+  if (search) {
+      const lowerSearch = search.toLowerCase();
+      filteredPayments = filteredPayments.filter(p => {
+          return p.id.toLowerCase().includes(lowerSearch) || 
+                 p.metode.toLowerCase().includes(lowerSearch) ||
+                 (p.midtrans_id && p.midtrans_id.toLowerCase().includes(lowerSearch));
+      });
+  }
+
+  filteredPayments.sort((a, b) => {
+      if (sortBy === 'date_desc') return new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime();
+      if (sortBy === 'date_asc') return new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime();
+      if (sortBy === 'amount_desc') return b.jumlah - a.jumlah;
+      if (sortBy === 'amount_asc') return a.jumlah - b.jumlah;
+      return 0;
+  });
+
   return (
     <div className="space-y-8">
       <div>
         <div className="label-upper mb-1">Transaksi</div>
         <h1 className="text-3xl font-normal leading-tight">Riwayat Pembayaran</h1>
       </div>
+
+      <div className="flex gap-4">
+        <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input 
+                type="text" 
+                placeholder="Cari ID transaksi, metode bayar, atau Midtrans ID..."
+                className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+            />
+        </div>
+        <select 
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="bg-white border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+        >
+            <option value="date_desc">Terbaru</option>
+            <option value="date_asc">Terlama</option>
+            <option value="amount_desc">Nominal Tertinggi</option>
+            <option value="amount_asc">Nominal Terendah</option>
+        </select>
+      </div>
+
       <div className="grid grid-cols-1 gap-4">
-        {state.payments.map((p: Payment) => (
+        {filteredPayments.map((p: Payment) => (
           <div
             key={p.id}
             className="bg-white p-6 rounded-[2rem] border border-slate-100 flex justify-between items-center shadow-sm"
@@ -354,6 +400,8 @@ const calculateStats = (state: any) => ({
 // MAIN DASHBOARD LAYOUT
 // ──────────────────────────────────────
 
+import { SidebarUserActions } from '../../components/shared/SidebarUserActions';
+
 export const AdminDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate }) => {
   const { state } = useApp();
   const [activeTab, setActiveTab] = useState('overview');
@@ -385,9 +433,10 @@ export const AdminDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ 
   };
 
   return (
-    <div className="flex pt-20 h-screen overflow-hidden bg-slate-50 relative">
+    <div className="flex h-screen overflow-hidden bg-slate-50 relative">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-100 flex flex-col p-6 shrink-0">
+      <aside className="w-64 bg-white border-r border-slate-100 flex flex-col p-6 shrink-0 space-y-6">
+        <SidebarUserActions onNavigate={onNavigate} />
         <div className="space-y-1 flex-1">
           {menuItems.map(item => (
             <button

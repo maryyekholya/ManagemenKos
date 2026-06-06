@@ -60,4 +60,31 @@ class BookingController extends Controller
             'new_status' => $newStatus
         ]);
     }
+
+    /**
+     * EXTEND RENT (Perpanjang Masa Sewa)
+     */
+    public function extendRent(Request $request, string $id): JsonResponse
+    {
+        // Dalam implementasi nyata, akan mengambil dari database berdasarkan $id
+        // Simulasi logika bisnis perpanjangan durasi sewa
+        
+        $months = $request->input('months', 1);
+        $amount = $request->input('amount', 0); // Harga per bulan * months
+        
+        // Asumsi State masih Occupied/Confirmed, maka kita buat Payment Record baru
+        TransactionHistoryManager::getInstance()->recordTransaction($id, $amount, 'EXTEND_RENT_SUCCESS');
+        $this->notifier->notify("Booking $id diperpanjang selama $months bulan.");
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Durasi sewa berhasil diperpanjang',
+            'data' => [
+                'booking_id' => $id,
+                'added_months' => $months,
+                'total_amount_paid' => $amount,
+                // tgl_keluar yang baru dikalkulasikan di frontend dan direflect di DB nyata
+            ]
+        ]);
+    }
 }

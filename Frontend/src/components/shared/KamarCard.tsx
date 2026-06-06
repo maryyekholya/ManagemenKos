@@ -1,5 +1,5 @@
-import React from 'react';
-import { Bed, Users, Wifi, Wind, Tv, Coffee, User, Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { Bed, Users, Wifi, Wind, Tv, Coffee, User, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { Kamar, PricingStrategyType } from '../../types';
 import { PricingStrategy } from '../../lib/patterns';
 import { formatRupiah, cn } from '../../lib/utils';
@@ -22,6 +22,7 @@ const facilityIcons: Record<string, any> = {
 };
 
 export const KamarCard: React.FC<KamarCardProps> = ({ kamar, strategy, onBook, onSelect, adminActions }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
   const finalPrice = PricingStrategy.calculate(kamar.harga_dasar, strategy);
   const isDiscounted = strategy !== 'Normal';
 
@@ -66,12 +67,12 @@ export const KamarCard: React.FC<KamarCardProps> = ({ kamar, strategy, onBook, o
           </div>
         </div>
 
-        <p className="text-sm text-slate-500 line-clamp-4 leading-relaxed mb-6">
+        <p className={cn("text-sm text-slate-500 leading-relaxed mb-6", !isExpanded && "line-clamp-4")}>
           {kamar.description || kamar.deskripsi}
         </p>
 
         <div className="flex flex-wrap gap-2 mb-8">
-          {kamar.fasilitas.slice(0, 3).map(f => {
+          {(isExpanded ? kamar.fasilitas : kamar.fasilitas.slice(0, 3)).map(f => {
             const Icon = facilityIcons[f] || Check;
             return (
               <span key={f} className="flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-100 text-[11px] font-medium text-slate-500">
@@ -79,11 +80,16 @@ export const KamarCard: React.FC<KamarCardProps> = ({ kamar, strategy, onBook, o
               </span>
             );
           })}
+          {!isExpanded && kamar.fasilitas.length > 3 && (
+             <span className="flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-100 text-[11px] font-medium text-slate-500">
+                +{kamar.fasilitas.length - 3} lainnya
+             </span>
+          )}
         </div>
 
         <div className="mt-auto pt-6 border-t border-slate-100 flex gap-4">
-          <Button variant="secondary" className="flex-1 py-3" onClick={() => onSelect?.(kamar)}>
-            View Details
+          <Button variant="secondary" className="flex-1 py-3" onClick={() => { setIsExpanded(!isExpanded); onSelect?.(kamar); }}>
+            {isExpanded ? 'Sembunyikan' : 'View Details'} {isExpanded ? <ChevronUp className="w-4 h-4 ml-2 inline" /> : <ChevronDown className="w-4 h-4 ml-2 inline" />}
           </Button>
           {kamar.status === 'TERSEDIA' && onBook && (
             <Button className="flex-1 py-3" onClick={() => onBook(kamar)}>

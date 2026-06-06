@@ -31,12 +31,11 @@ type KamarFormData = Omit<Kamar, 'id'>;
 // KAMAR FORM MODAL
 // ──────────────────────────────────────
 
-const KamarFormModal: React.FC<{
-  isOpen: boolean;
+const KamarFormInline: React.FC<{
   onClose: () => void;
   editingKamar: Kamar | null;
   onSave: (data: KamarFormData) => { success: boolean; errors: any[] };
-}> = ({ isOpen, onClose, editingKamar, onSave }) => {
+}> = ({ onClose, editingKamar, onSave }) => {
   const [form, setForm] = useState<KamarFormData>(
     editingKamar
       ? {
@@ -57,27 +56,25 @@ const KamarFormModal: React.FC<{
   const [success, setSuccess] = useState(false);
 
   React.useEffect(() => {
-    if (isOpen) {
-      setForm(
-        editingKamar
-          ? {
-              nomor: editingKamar.nomor,
-              tipe: editingKamar.tipe,
-              harga_dasar: editingKamar.harga_dasar,
-              fasilitas: [...editingKamar.fasilitas],
-              status: editingKamar.status,
-              lantai: editingKamar.lantai,
-              kapasitas: editingKamar.kapasitas,
-              deskripsi: editingKamar.deskripsi,
-              description: editingKamar.description,
-              foto_url: editingKamar.foto_url,
-            }
-          : createEmptyKamar()
-      );
-      setErrors([]);
-      setSuccess(false);
-    }
-  }, [isOpen, editingKamar]);
+    setForm(
+      editingKamar
+        ? {
+            nomor: editingKamar.nomor,
+            tipe: editingKamar.tipe,
+            harga_dasar: editingKamar.harga_dasar,
+            fasilitas: [...editingKamar.fasilitas],
+            status: editingKamar.status,
+            lantai: editingKamar.lantai,
+            kapasitas: editingKamar.kapasitas,
+            deskripsi: editingKamar.deskripsi,
+            description: editingKamar.description,
+            foto_url: editingKamar.foto_url,
+          }
+        : createEmptyKamar()
+    );
+    setErrors([]);
+    setSuccess(false);
+  }, [editingKamar]);
 
   const toggleFasilitas = (f: string) => {
     setForm((prev) => ({
@@ -102,13 +99,15 @@ const KamarFormModal: React.FC<{
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={editingKamar ? 'Edit Kamar' : 'Tambah Kamar Baru'}
-      size="lg"
-    >
-      <div className="space-y-6 p-2">
+    <div className="space-y-8 max-w-4xl">
+      <div className="flex justify-between items-center">
+        <div>
+          <div className="label-upper mb-1">Formulir Properti</div>
+          <h1 className="text-3xl font-normal leading-tight">{editingKamar ? 'Edit Kamar' : 'Tambah Kamar Baru'}</h1>
+        </div>
+      </div>
+      
+      <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
         {/* Error Banner */}
         <AnimatePresence>
           {errors.length > 0 && (
@@ -144,7 +143,7 @@ const KamarFormModal: React.FC<{
         </AnimatePresence>
 
         {/* Row 1: Nomor + Lantai */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-8">
           <FormInput
             label="Nomor Kamar"
             placeholder="101"
@@ -162,8 +161,8 @@ const KamarFormModal: React.FC<{
         </div>
 
         {/* Row 2: Tipe + Harga */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-8">
+          <div className="space-y-3">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
               Tipe Kamar
             </label>
@@ -173,9 +172,9 @@ const KamarFormModal: React.FC<{
                   key={t}
                   onClick={() => setForm((p) => ({ ...p, tipe: t as RoomType }))}
                   className={cn(
-                    'flex-1 py-2 text-xs font-bold border rounded-xl transition-all',
+                    'flex-1 py-3 text-xs font-bold border rounded-xl transition-all',
                     form.tipe === t
-                      ? 'bg-slate-900 text-white border-slate-900'
+                      ? 'bg-emerald-600 text-white border-emerald-600'
                       : 'border-slate-200 text-slate-500 hover:border-slate-400'
                   )}
                 >
@@ -195,7 +194,7 @@ const KamarFormModal: React.FC<{
         </div>
 
         {/* Row 3: Kapasitas + Foto URL */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-8">
           <FormInput
             label="Kapasitas (Orang)"
             type="number"
@@ -215,19 +214,19 @@ const KamarFormModal: React.FC<{
         </div>
 
         {/* Fasilitas */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
             Fasilitas
           </label>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             {COMMON_FASILITAS.map((f) => (
               <button
                 key={f}
                 onClick={() => toggleFasilitas(f)}
                 className={cn(
-                  'px-3 py-1.5 text-xs font-semibold border rounded-full transition-all',
+                  'px-4 py-2 text-xs font-bold border rounded-full transition-all',
                   form.fasilitas.includes(f)
-                    ? 'bg-emerald-600 text-white border-emerald-600'
+                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
                     : 'border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-600'
                 )}
               >
@@ -238,28 +237,30 @@ const KamarFormModal: React.FC<{
         </div>
 
         {/* Deskripsi */}
-        <FormInput
-          label="Deskripsi Singkat"
-          type="textarea"
-          value={form.deskripsi}
-          placeholder="Ringkasan singkat untuk status kamar..."
-          onChange={(e) =>
-            setForm((p) => ({ ...p, deskripsi: e.target.value }))
-          }
-        />
-        <FormInput
-          label="Deskripsi Lengkap"
-          type="textarea"
-          value={form.description}
-          placeholder="Penjelasan mendalam tentang kamar, suasana, dan keunggulan..."
-          onChange={(e) =>
-            setForm((p) => ({ ...p, description: e.target.value }))
-          }
-        />
+        <div className="space-y-8">
+          <FormInput
+            label="Deskripsi Singkat"
+            type="textarea"
+            value={form.deskripsi}
+            placeholder="Ringkasan singkat untuk status kamar..."
+            onChange={(e) =>
+              setForm((p) => ({ ...p, deskripsi: e.target.value }))
+            }
+          />
+          <FormInput
+            label="Deskripsi Lengkap"
+            type="textarea"
+            value={form.description}
+            placeholder="Penjelasan mendalam tentang kamar, suasana, dan keunggulan..."
+            onChange={(e) =>
+              setForm((p) => ({ ...p, description: e.target.value }))
+            }
+          />
+        </div>
 
         {/* Actions */}
-        <div className="flex gap-3 pt-2">
-          <Button variant="secondary" className="flex-1" onClick={onClose}>
+        <div className="flex gap-4 pt-6 border-t border-slate-100">
+          <Button variant="secondary" className="flex-1 py-4" onClick={onClose}>
             Batal
           </Button>
           <Button
@@ -270,7 +271,7 @@ const KamarFormModal: React.FC<{
           </Button>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 };
 
@@ -353,98 +354,100 @@ export const AdminKamar: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <div className="label-upper mb-1">Inventori Properti</div>
-          <h1 className="text-3xl font-normal leading-tight">Manajemen Kamar</h1>
-        </div>
-        <Button
-          onClick={() => {
+      {isFormOpen ? (
+        <KamarFormInline
+          onClose={() => {
+            setIsFormOpen(false);
             setEditingKamar(null);
-            setIsFormOpen(true);
           }}
-          className="gap-2"
-        >
-          <Plus className="w-4 h-4" /> Tambah Kamar
-        </Button>
-      </div>
-
-      {/* Stats bar */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: 'Total Kamar', value: kamars.length, color: 'bg-slate-100' },
-          {
-            label: 'Tersedia',
-            value: kamars.filter((k) => k.status === 'TERSEDIA').length,
-            color: 'bg-emerald-50',
-          },
-          {
-            label: 'Dihuni',
-            value: kamars.filter((k) => k.status === 'DIHUNI').length,
-            color: 'bg-blue-50',
-          },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className={`${s.color} rounded-2xl p-5 flex items-center justify-between`}
-          >
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-              {s.label}
-            </span>
-            <span className="text-2xl font-bold text-slate-900">{s.value}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Grid Kamar */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <AnimatePresence>
-          {kamars.map((k) => (
-            <motion.div
-              key={k.id}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.2 }}
+          editingKamar={editingKamar}
+          onSave={handleSave}
+        />
+      ) : (
+        <>
+          {/* Header */}
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="label-upper mb-1">Inventori Properti</div>
+              <h1 className="text-3xl font-normal leading-tight">Manajemen Kamar</h1>
+            </div>
+            <Button
+              onClick={() => {
+                setEditingKamar(null);
+                setIsFormOpen(true);
+              }}
+              className="gap-2"
             >
-              <KamarCard
-                kamar={k}
-                strategy={state.activeStrategy}
-                adminActions={
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEdit(k)}
-                      title="Edit Kamar"
-                      className="p-2.5 bg-white text-emerald-600 rounded-full hover:bg-emerald-50 transition-colors shadow-sm"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteClick(k)}
-                      title="Hapus Kamar"
-                      className="p-2.5 bg-white text-red-500 rounded-full hover:bg-red-50 transition-colors shadow-sm"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                }
-              />
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+              <Plus className="w-4 h-4" /> Tambah Kamar
+            </Button>
+          </div>
 
-      {/* Form Modal */}
-      <KamarFormModal
-        isOpen={isFormOpen}
-        onClose={() => {
-          setIsFormOpen(false);
-          setEditingKamar(null);
-        }}
-        editingKamar={editingKamar}
-        onSave={handleSave}
-      />
+          {/* Stats bar */}
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { label: 'Total Kamar', value: kamars.length, color: 'bg-slate-100' },
+              {
+                label: 'Tersedia',
+                value: kamars.filter((k) => k.status === 'TERSEDIA').length,
+                color: 'bg-emerald-50',
+              },
+              {
+                label: 'Dihuni',
+                value: kamars.filter((k) => k.status === 'DIHUNI').length,
+                color: 'bg-blue-50',
+              },
+            ].map((s) => (
+              <div
+                key={s.label}
+                className={`${s.color} rounded-2xl p-5 flex items-center justify-between`}
+              >
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  {s.label}
+                </span>
+                <span className="text-2xl font-bold text-slate-900">{s.value}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Grid Kamar */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <AnimatePresence>
+              {kamars.map((k) => (
+                <motion.div
+                  key={k.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <KamarCard
+                    kamar={k}
+                    strategy={state.activeStrategy}
+                    adminActions={
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(k)}
+                          title="Edit Kamar"
+                          className="p-2.5 bg-white text-emerald-600 rounded-full hover:bg-emerald-50 transition-colors shadow-sm"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(k)}
+                          title="Hapus Kamar"
+                          className="p-2.5 bg-white text-red-500 rounded-full hover:bg-red-50 transition-colors shadow-sm"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    }
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </>
+      )}
 
       {/* Delete Modal */}
       <DeleteKamarModal

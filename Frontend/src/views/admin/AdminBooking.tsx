@@ -7,7 +7,7 @@
  */
 
 import React, { useState } from 'react';
-import { Eye, Check, X } from 'lucide-react';
+import { Eye, Check, X, Search, Filter } from 'lucide-react';
 import { Booking } from '../../types';
 import { useBookingController } from '../../controllers/useBookingController';
 import { Button, Modal, FormInput, StatusBadge } from '../../components/shared/UI';
@@ -24,6 +24,18 @@ export const AdminBooking: React.FC = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
+  const filteredBookings = bookings.filter(b => {
+    const kamar = state.kamars.find(k => k.id === b.kamar_id);
+    const matchesSearch = b.user_name.toLowerCase().includes(search.toLowerCase()) || 
+                          b.id.toLowerCase().includes(search.toLowerCase()) || 
+                          kamar?.nomor.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'ALL' || b.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const handleConfirm = () => {
     if (!selectedBooking) return;
@@ -63,6 +75,31 @@ export const AdminBooking: React.FC = () => {
         ))}
       </div>
 
+      <div className="flex gap-4">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input 
+            type="text" 
+            placeholder="Cari nama tenant, ID booking, atau nomor kamar..."
+            className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <select 
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="bg-white border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+        >
+          <option value="ALL">Semua Status</option>
+          <option value="MENUNGGU_PEMBAYARAN">Menunggu Pembayaran</option>
+          <option value="DIKONFIRMASI">Dikonfirmasi</option>
+          <option value="DIHUNI">Dihuni</option>
+          <option value="SELESAI">Selesai</option>
+          <option value="DIBATALKAN">Dibatalkan</option>
+        </select>
+      </div>
+
       {/* Table */}
       <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
         <table className="w-full text-left">
@@ -76,7 +113,7 @@ export const AdminBooking: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {bookings.map(b => {
+            {filteredBookings.map(b => {
               const kamar = state.kamars.find(k => k.id === b.kamar_id);
               return (
                 <tr key={b.id} className="hover:bg-slate-50/60 transition-colors">

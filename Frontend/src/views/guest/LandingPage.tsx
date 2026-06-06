@@ -186,10 +186,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ kamars, activeStrategy
         size="lg"
       >
         {selectedKamar && (
-          <div className="space-y-8">
+          <div className="space-y-8 p-8 pt-4">
             <img 
                src={selectedKamar.foto_url} 
-               className="w-full h-72 object-cover rounded-2xl" 
+               className="w-full h-72 object-cover rounded-xl shadow-xs" 
                referrerPolicy="no-referrer"
             />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

@@ -48,8 +48,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, activeView, onNa
     user: [
       { label: 'Dashboard', view: 'user-dashboard', icon: Home },
       { label: 'Sewa Kamar', view: 'landing-rooms', icon: Bed },
-      { label: 'Booking Saya', view: 'user-bookings', icon: ClipboardList },
-      { label: 'Keluhan', view: 'user-keluhan', icon: FileText },
     ],
     admin: [
       { label: 'Dashboard', view: 'admin-dashboard', icon: Home },
@@ -69,6 +67,8 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, activeView, onNa
   };
 
   const navItems = navItemsByRole[user?.role || 'guest'];
+
+  if (user && user.role !== 'guest') return null;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-md border-bottom border-slate-100 h-20 flex items-center px-6 md:px-12">
