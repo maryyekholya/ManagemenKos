@@ -13,11 +13,19 @@
  * 4. Named Routes: Penamaan rute menggunakan `name()` untuk mempermudah pemanggilan rute di dalam aplikasi.
  */
 
+use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\Auth\ApiAuthController;
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\AccountController;
+use App\Http\Controllers\ComplaintAttachmentController;
 
 Route::group(['prefix' => 'v1', 'as' => 'api.v1.'], function () {
+
+    // --- Admin Dashboard & Account Management ---
+    Route::get('/admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
+    Route::apiResource('/admin/users', AccountController::class);
 
     // --- Singleton & Strategy (Kamar) ---
     Route::get('/rooms', [RoomController::class, 'getAllRooms'])->name('rooms.index');
@@ -35,4 +43,7 @@ Route::group(['prefix' => 'v1', 'as' => 'api.v1.'], function () {
     Route::put('/bookings/{id}/extend', [BookingController::class, 'extendRent'])->name('bookings.extend');
 
     // --- Contoh Endpoints lainnya dapat ditambahkan sesuai entitas (Payment, Complaint) ---
+
+    // --- Complaint Attachment Upload ---
+    Route::post('/complaints/upload-attachment', [ComplaintAttachmentController::class, 'upload'])->name('complaints.upload');
 });

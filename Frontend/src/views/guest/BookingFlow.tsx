@@ -33,7 +33,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
   });
 
   const finalPrice = PricingStrategy.calculate(kamar.harga_dasar, strategy);
-  const totalAmount = finalPrice * 1; 
+  const totalAmount = finalPrice * formData.duration;
   const totalOverall = finalPrice * formData.duration;
 
   const handleNext = () => setStep(s => s + 1);
@@ -340,7 +340,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
                         <span className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Total Pembayaran</span>
                         <span className="text-xl font-bold text-emerald-600 font-mono">{formatRupiah(totalAmount)}</span>
                      </div>
-                     <p className="text-[10px] text-slate-400 text-right italic font-medium">*Tagihan bulan pertama + Biaya admin</p>
+                     <p className="text-[10px] text-slate-400 text-right italic font-medium">*Total tagihan {formData.duration} bulan masa sewa</p>
                   </div>
 
                   <div className="p-4 bg-yellow-50 border border-yellow-100 rounded-2xl flex gap-3">

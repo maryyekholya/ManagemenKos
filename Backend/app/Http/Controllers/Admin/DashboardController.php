@@ -20,13 +20,23 @@ class DashboardController extends Controller
             'kamar_dihuni'   => Kamar::where('status', 'DIHUNI')->count(),
             'total_booking'  => Booking::count(),
             'booking_aktif'  => Booking::whereIn('status', ['DIPESAN', 'DIKONFIRMASI', 'DIHUNI'])->count(),
+            // Mocking for frontend
+            'monthly_revenue' => 16800000,
+            'open_complaints' => 1,
         ];
 
         $recentBookings = Booking::with(['kamar', 'user'])
             ->latest()
-            ->take(5)
+            ->take(3)
             ->get();
 
-        return view('admin.dashboard', compact('stats', 'recentBookings'));
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'stats' => $stats,
+                'recent_bookings' => $recentBookings,
+                'occupancy_chart' => [60, 80, 75, 90, 85, 95]
+            ]
+        ]);
     }
 }

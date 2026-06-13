@@ -15,7 +15,7 @@ import { BookingFlow } from './views/guest/BookingFlow';
 import { AdminDashboard } from './views/admin/AdminDashboard';
 import { UserDashboard } from './views/user/UserDashboard';
 import { Modal, Button, FormInput } from './components/shared/UI';
-import { LogIn, Check } from 'lucide-react';
+import { LogIn, Check, Eye, EyeOff, KeyRound, ArrowLeft, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { ManagerDashboard } from './views/manager/ManagerDashboard';
@@ -57,6 +57,7 @@ function appReducer(state: AppState, action: any): AppState {
       };
     }
     case 'ADD_USER': return { ...state, users: [...state.users, action.payload] };
+    case 'DELETE_USER': return { ...state, users: state.users.filter(u => u.id !== action.payload) };
     case 'VERIFY_USER': return { ...state, users: state.users.map(u => u.email === action.payload ? { ...u, isVerified: true } : u) };
     case 'LOGOUT': {
       if (window.location.hash !== '#login') {
@@ -436,8 +437,35 @@ const LoginPage: React.FC<{
 }> = ({ onLogin, onRegisterOpen, onCancel }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // ── Forgot Password State ──
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotStep, setForgotStep] = useState<'input' | 'sent'>('input');
+  const [forgotLoading, setForgotLoading] = useState(false);
+
+  const handleForgotSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setForgotLoading(true);
+    // Simulasi delay pengiriman email
+    setTimeout(() => {
+      setForgotLoading(false);
+      setForgotStep('sent');
+    }, 1200);
+  };
+
+  const handleForgotClose = () => {
+    setShowForgot(false);
+    // Reset state setelah modal ditutup
+    setTimeout(() => {
+      setForgotEmail('');
+      setForgotStep('input');
+    }, 300);
+  };
 
   const handleLogin = () => {
     setError('');
@@ -529,7 +557,27 @@ const LoginPage: React.FC<{
             className="space-y-4"
           >
             <FormInput label="Email" placeholder="Masukkan email Anda" value={email} onChange={e => { setEmail(e.target.value); setError(''); }} />
-            <FormInput label="Password" type="password" placeholder="••••••••" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} />
+            <div className="space-y-2 w-full">
+              <label className="label-upper block ml-1">Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={e => { setPassword(e.target.value); setError(''); }}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 outline-hidden focus:border-slate-800 transition-all text-sm pr-12"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(p => !p)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-700 transition-colors rounded-lg hover:bg-slate-100"
+                  tabIndex={-1}
+                  title={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
             
             {error && (
               <motion.p
@@ -542,7 +590,12 @@ const LoginPage: React.FC<{
             )}
 
             <div className="flex justify-start items-center text-sm font-bold">
-               <button className="text-emerald-600 hover:underline">Lupa Password?</button>
+               <button 
+                 className="text-emerald-600 hover:underline"
+                 onClick={() => setShowForgot(true)}
+               >
+                 Lupa Password?
+               </button>
             </div>
             <Button
               className={`w-full py-4 text-lg transition-all ${ isLoading ? 'opacity-70 cursor-wait' : '' }`}
@@ -576,9 +629,92 @@ const LoginPage: React.FC<{
           </motion.div>
         </div>
       </motion.div>
+
+      {/* ── Forgot Password Modal ── */}
+      <ForgotPasswordModal
+        isOpen={showForgot}
+        step={forgotStep}
+        email={forgotEmail}
+        loading={forgotLoading}
+        onEmailChange={setForgotEmail}
+        onSubmit={handleForgotSubmit}
+        onClose={handleForgotClose}
+      />
     </div>
   );
 };
+
+// ── Forgot Password Modal (inline helper component) ──
+const ForgotPasswordModal: React.FC<{
+  isOpen: boolean;
+  step: 'input' | 'sent';
+  email: string;
+  loading: boolean;
+  onEmailChange: (v: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  onClose: () => void;
+}> = ({ isOpen, step, email, loading, onEmailChange, onSubmit, onClose }) => (
+  <Modal isOpen={isOpen} onClose={onClose} title="" size="sm">
+    <div className="p-2">
+      {step === 'input' ? (
+        <form onSubmit={onSubmit} className="space-y-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0">
+              <KeyRound className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Lupa Password?</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Masukkan email untuk menerima link reset.</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Email Terdaftar</label>
+            <div className="relative">
+              <Mail className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="email"
+                required
+                placeholder="nama@email.com"
+                value={email}
+                onChange={e => onEmailChange(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+              />
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
+              Batal
+            </Button>
+            <Button type="submit" isLoading={loading} className="flex-1">
+              Kirim Link Reset
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <div className="text-center space-y-6 py-4">
+          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+            <Mail className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-bold text-slate-900">Link Reset Terkirim!</h3>
+            <p className="text-sm text-slate-500">
+              Kami telah mengirim link reset password ke{' '}
+              <span className="font-bold text-slate-700">{email}</span>.
+            </p>
+            <p className="text-xs text-slate-400">Silakan cek folder inbox atau spam Anda.</p>
+          </div>
+          <Button className="w-full" onClick={onClose}>
+            Kembali ke Login
+          </Button>
+        </div>
+      )}
+    </div>
+  </Modal>
+);
+
+// Render modal Lupa Password di bawah komponen LoginPage tidak bisa karena tidak ada return statement terpisah.
+// Modal dirender inline di dalam return LoginPage.
+// Catatan: Tambahan modal di bawah (setelah </div> utama, sebelum penutup).
 
 // ═══════════════════════════════
 // REGISTER PAGE COMPONENT

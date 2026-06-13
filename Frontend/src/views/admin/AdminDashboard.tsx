@@ -12,10 +12,10 @@
  *  - AdminPembayaran, AdminLaporan, AdminSettings → inline di bawah
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart3, Bed, ClipboardList, CreditCard, PieChart,
-  Settings, Download, MessageSquare, Check, Search
+  Settings, Download, MessageSquare, Check, Search, Users
 } from 'lucide-react';
 import { useApp } from '../../App';
 import { Payment, User } from '../../types';
@@ -25,84 +25,129 @@ import { ChatWidget } from '../../components/shared/ChatWidget';
 import { AdminKamar } from './AdminKamar';
 import { AdminBooking } from './AdminBooking';
 import { AdminKeluhan } from './AdminKeluhan';
+import { AdminAkun } from './AdminAkun';
+import { AdminTambahPengguna } from './AdminTambahPengguna';
 import { motion } from 'motion/react';
 
 // ──────────────────────────────────────
 // OVERVIEW
 // ──────────────────────────────────────
 
-const Overview: React.FC<{ stats: ReturnType<typeof calculateStats> }> = ({ stats }) => (
-  <div className="space-y-12">
-    <div className="flex justify-between items-end">
-      <div className="space-y-2">
-        <div className="label-upper">Admin Control</div>
-        <h1 className="text-3xl font-normal leading-tight">Operational Overview</h1>
-      </div>
-      <Button variant="secondary">Download Summary</Button>
-    </div>
+const Overview: React.FC<{ stats: ReturnType<typeof calculateStats> }> = ({ stats }) => {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-      {[
-        { label: 'Total Inventory', value: stats.total, icon: Bed },
-        { label: 'Occupancy', value: stats.filled, icon: Check },
-        { label: 'Monthly Revenue', value: formatRupiah(stats.revenue), icon: CreditCard },
-        { label: 'Open Complaints', value: stats.complaints, icon: ClipboardList },
-      ].map(s => (
-        <div key={s.label} className="bg-white p-8 border border-slate-200 flex flex-col gap-4">
-          <div className="w-10 h-10 bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400">
-            <s.icon className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="label-upper text-[10px] mb-1">{s.label}</p>
-            <p className="text-2xl font-medium text-slate-900">{s.value}</p>
-          </div>
-        </div>
-      ))}
-    </div>
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/v1/admin/dashboard');
+        const json = await response.json();
+        if (json.success) {
+          setData(json.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboard();
+  }, []);
 
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      {/* Occupancy Chart */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-        <h3 className="text-xl font-bold mb-6">Tingkat Hunian</h3>
-        <div className="h-64 flex items-end justify-between gap-4">
-          {[60, 80, 75, 90, 85, 95].map((h, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-2">
-              <motion.div
-                className="w-full bg-emerald-100 rounded-lg relative overflow-hidden"
-                style={{ height: `${h}%`, transformOrigin: 'bottom' }}
-                initial={{ scaleY: 0 }}
-                animate={{ scaleY: 1 }}
-                transition={{ delay: i * 0.1, duration: 0.5 }}
-              >
-                <div className="absolute inset-0 bg-emerald-600 opacity-60" />
-              </motion.div>
-              <span className="text-[10px] font-bold text-slate-400">Bln {i + 1}</span>
-            </div>
-          ))}
+  const displayStats = data ? {
+    total: data.stats.total_kamar,
+    filled: data.stats.kamar_dihuni,
+    revenue: data.stats.monthly_revenue,
+    complaints: data.stats.open_complaints,
+  } : stats;
+
+  const recentBookings = data ? data.recent_bookings : [1, 2, 3].map((i) => ({
+    id: i,
+    user: { name: `Tenant Name ${i}` },
+    kamar: { nomor: `10${i}` }
+  }));
+
+  const chartData = data ? data.occupancy_chart : [60, 80, 75, 90, 85, 95];
+
+  return (
+    <div className="space-y-12">
+      <div className="flex justify-between items-end">
+        <div className="space-y-2">
+          <div className="label-upper">Admin Control</div>
+          <h1 className="text-3xl font-normal leading-tight">Operational Overview</h1>
         </div>
+        <Button variant="secondary">Download Summary</Button>
       </div>
 
-      {/* Recent Bookings */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-        <h3 className="text-xl font-bold mb-6">Booking Terbaru</h3>
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-bold text-xs text-slate-500 shadow-sm">BK</div>
+      {loading ? (
+        <div className="py-20 text-center text-slate-400">Memuat data dashboard...</div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[
+              { label: 'Total Inventory', value: displayStats.total, icon: Bed },
+              { label: 'Occupancy', value: displayStats.filled, icon: Check },
+              { label: 'Monthly Revenue', value: formatRupiah(displayStats.revenue), icon: CreditCard },
+              { label: 'Open Complaints', value: displayStats.complaints, icon: ClipboardList },
+            ].map(s => (
+              <div key={s.label} className="bg-white p-8 border border-slate-200 flex flex-col gap-4">
+                <div className="w-10 h-10 bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400">
+                  <s.icon className="w-5 h-5" />
+                </div>
                 <div>
-                  <p className="text-sm font-bold">Tenant Name {i}</p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">Kamar 10{i}</p>
+                  <p className="label-upper text-[10px] mb-1">{s.label}</p>
+                  <p className="text-2xl font-medium text-slate-900">{s.value}</p>
                 </div>
               </div>
-              <Button className="py-2 text-xs">Detail</Button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Occupancy Chart */}
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+              <h3 className="text-xl font-bold mb-6">Tingkat Hunian</h3>
+              <div className="h-64 flex items-end justify-between gap-4">
+                {chartData.map((h: number, i: number) => (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                    <motion.div
+                      className="w-full bg-emerald-100 rounded-lg relative overflow-hidden"
+                      style={{ height: `${h}%`, transformOrigin: 'bottom' }}
+                      initial={{ scaleY: 0 }}
+                      animate={{ scaleY: 1 }}
+                      transition={{ delay: i * 0.1, duration: 0.5 }}
+                    >
+                      <div className="absolute inset-0 bg-emerald-600 opacity-60" />
+                    </motion.div>
+                    <span className="text-[10px] font-bold text-slate-400">Bln {i + 1}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
-      </div>
+
+            {/* Recent Bookings */}
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+              <h3 className="text-xl font-bold mb-6">Booking Terbaru</h3>
+              <div className="space-y-4">
+                {recentBookings.map((b: any, i: number) => (
+                  <div key={b.id || i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-bold text-xs text-slate-500 shadow-sm">BK</div>
+                      <div>
+                        <p className="text-sm font-bold">{b.user?.name || `Tenant Name ${i + 1}`}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">Kamar {b.kamar?.nomor || `10${i + 1}`}</p>
+                      </div>
+                    </div>
+                    <Button className="py-2 text-xs">Detail</Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 // ──────────────────────────────────────
 // PEMBAYARAN (inline — tidak perlu controller terpisah)
@@ -201,6 +246,52 @@ const AdminPembayaran: React.FC = () => {
 
 const AdminLaporan: React.FC = () => {
   const { state } = useApp();
+
+  // Kelompokkan pembayaran SUCCESS berdasarkan bulan (YYYY-MM)
+  const monthlyMap = state.payments
+    .filter((p: Payment) => p.status === 'SUCCESS')
+    .reduce((acc: Record<string, { pendapatan: number; bookingIds: Set<string> }>, p: Payment) => {
+      const key = p.tanggal.substring(0, 7); // "2025-01"
+      if (!acc[key]) acc[key] = { pendapatan: 0, bookingIds: new Set() };
+      acc[key].pendapatan += p.jumlah;
+      acc[key].bookingIds.add(p.booking_id);
+      return acc;
+    }, {});
+
+  // Urutkan dari terbaru ke terlama
+  const sortedMonths = Object.entries(monthlyMap).sort((a, b) => b[0].localeCompare(a[0]));
+
+  const totalPendapatan = state.payments
+    .filter((p: Payment) => p.status === 'SUCCESS')
+    .reduce((a: number, p: Payment) => a + p.jumlah, 0);
+
+  const formatBulan = (key: string) => {
+    const [year, month] = key.split('-');
+    const namaBulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    return `${namaBulan[parseInt(month) - 1]} ${year}`;
+  };
+
+  const handleExportCSV = () => {
+    const header = ['Bulan', 'Pendapatan (Rp)', 'Jumlah Booking'];
+    const rows = sortedMonths.map(([key, data]: [string, { pendapatan: number; bookingIds: Set<string> }]) => [
+      formatBulan(key),
+      data.pendapatan.toString(),
+      data.bookingIds.size.toString()
+    ]);
+    const totalRow = ['TOTAL', totalPendapatan.toString(), ''];
+    const csvContent = [header, ...rows, [], totalRow]
+      .map(row => row.join(','))
+      .join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `laporan-keuangan-nestin-${new Date().toISOString().substring(0,10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
@@ -208,15 +299,15 @@ const AdminLaporan: React.FC = () => {
           <div className="label-upper mb-1">Analitik</div>
           <h1 className="text-3xl font-normal leading-tight">Laporan Keuangan</h1>
         </div>
-        <Button variant="secondary" className="gap-2">
+        <Button variant="secondary" className="gap-2" onClick={handleExportCSV}>
           <Download className="w-4 h-4" /> Ekspor CSV
         </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-          { label: 'Total Pendapatan', value: formatRupiah(state.payments.reduce((a: number, p: Payment) => a + p.jumlah, 0)) },
-          { label: 'Tingkat Hunian', value: `${Math.round((state.kamars.filter((k: any) => k.status === 'DIHUNI').length / state.kamars.length) * 100)}%` },
+          { label: 'Total Pendapatan', value: formatRupiah(totalPendapatan) },
+          { label: 'Tingkat Hunian', value: `${state.kamars.length > 0 ? Math.round((state.kamars.filter((k: any) => k.status === 'DIHUNI').length / state.kamars.length) * 100) : 0}%` },
           { label: 'Total Booking', value: state.bookings.length.toString() },
         ].map(s => (
           <div key={s.label} className="bg-white p-8 rounded-[2rem] border border-slate-100">
@@ -230,20 +321,35 @@ const AdminLaporan: React.FC = () => {
         <table className="w-full">
           <thead className="bg-slate-50 border-b border-slate-100">
             <tr>
-              {['Bulan', 'Pendapatan', 'Booking'].map(h => (
+              {['Bulan', 'Pendapatan', 'Booking Unik'].map(h => (
                 <th key={h} className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {['Januari', 'Februari', 'Maret'].map(m => (
-              <tr key={m} className="hover:bg-slate-50/50">
-                <td className="px-6 py-4 font-bold">{m} 2025</td>
-                <td className="px-6 py-4 font-mono text-emerald-600 font-bold">{formatRupiah(12500000)}</td>
-                <td className="px-6 py-4">{Math.floor(Math.random() * 10) + 5}</td>
+            {sortedMonths.length > 0 ? sortedMonths.map(([key, data]: [string, { pendapatan: number; bookingIds: Set<string> }]) => (
+              <tr key={key} className="hover:bg-slate-50/50">
+                <td className="px-6 py-4 font-bold">{formatBulan(key)}</td>
+                <td className="px-6 py-4 font-mono text-emerald-600 font-bold">{formatRupiah(data.pendapatan)}</td>
+                <td className="px-6 py-4 font-bold">{data.bookingIds.size}</td>
               </tr>
-            ))}
+            )) : (
+              <tr>
+                <td colSpan={3} className="px-6 py-12 text-center text-slate-400 text-sm">
+                  Belum ada data transaksi sukses.
+                </td>
+              </tr>
+            )}
           </tbody>
+          {sortedMonths.length > 0 && (
+            <tfoot className="bg-slate-900 text-white">
+              <tr>
+                <td className="px-6 py-4 font-bold text-sm">TOTAL</td>
+                <td className="px-6 py-4 font-bold font-mono">{formatRupiah(totalPendapatan)}</td>
+                <td className="px-6 py-4 font-bold">{new Set(state.payments.filter((p: Payment) => p.status === 'SUCCESS').map((p: Payment) => p.booking_id)).size}</td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
     </div>
@@ -409,6 +515,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ 
 
   const menuItems = [
     { id: 'overview',    label: 'Overview',          icon: BarChart3 },
+    { id: 'akun',        label: 'Manajemen Akun',    icon: Users },
     { id: 'kamar',       label: 'Manajemen Kamar',   icon: Bed },
     { id: 'booking',     label: 'Booking & Tenant',  icon: ClipboardList },
     { id: 'pembayaran',  label: 'Pembayaran',         icon: CreditCard },
@@ -420,6 +527,8 @@ export const AdminDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ 
 
   const renderTab = () => {
     switch (activeTab) {
+      case 'akun':       return <AdminAkun onNavigateToCreate={() => setActiveTab('akun-tambah')} />;
+      case 'akun-tambah': return <AdminTambahPengguna onBack={() => setActiveTab('akun')} />;
       case 'kamar':      return <AdminKamar />;
       case 'booking':    return <AdminBooking />;
       case 'pembayaran': return <AdminPembayaran />;

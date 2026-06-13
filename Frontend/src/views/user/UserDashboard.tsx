@@ -1085,6 +1085,63 @@ const UserKeluhan = () => {
       attachment_url: ''
     });
 
+    // Upload state
+    const [previewUrl, setPreviewUrl]     = useState<string | null>(null);
+    const [isUploading, setIsUploading]   = useState(false);
+    const [uploadError, setUploadError]   = useState<string | null>(null);
+    const fileInputRef                    = React.useRef<HTMLInputElement>(null);
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      // Validasi ukuran: maks 5MB
+      if (file.size > 5 * 1024 * 1024) {
+        setUploadError('Ukuran file melebihi batas 5MB.');
+        return;
+      }
+
+      setUploadError(null);
+      setIsUploading(true);
+      // Preview lokal sementara saat upload berlangsung
+      const localPreview = URL.createObjectURL(file);
+      setPreviewUrl(localPreview);
+
+      try {
+        const formData = new FormData();
+        formData.append('attachment', file);
+
+        const response = await fetch('http://127.0.0.1:8000/api/v1/complaints/upload-attachment', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const json = await response.json();
+
+        if (!response.ok || !json.success) {
+          setUploadError(json.message || 'Gagal mengupload file. Coba lagi.');
+          setPreviewUrl(null);
+          setNewComplaint(prev => ({ ...prev, attachment_url: '' }));
+        } else {
+          // Simpan URL publik dari backend
+          setNewComplaint(prev => ({ ...prev, attachment_url: json.data.url }));
+        }
+      } catch {
+        setUploadError('Tidak dapat terhubung ke server. Pastikan backend berjalan.');
+        setPreviewUrl(null);
+        setNewComplaint(prev => ({ ...prev, attachment_url: '' }));
+      } finally {
+        setIsUploading(false);
+      }
+    };
+
+    const handleRemoveFile = () => {
+      setPreviewUrl(null);
+      setUploadError(null);
+      setNewComplaint(prev => ({ ...prev, attachment_url: '' }));
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
     const userBookings = state.bookings.filter(b => b.user_id === state.currentUser?.id && ['DIKONFIRMASI', 'DIHUNI', 'SELESAI'].includes(b.status));
     const userKeluhans = state.keluhans.filter(k => userBookings.some(b => b.id === k.booking_id));
 
@@ -1252,27 +1309,61 @@ const UserKeluhan = () => {
               </div>
 
               <div className="space-y-2">
-                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Bukti Laporan (Opsional)</label>
-                 <input 
-                   type="file" 
-                   accept="image/*,.pdf"
-                   onChange={e => {
-                     if (e.target.files && e.target.files[0]) {
-                       // Simulasi upload, gunakan createObjectURL untuk demo
-                       setNewComplaint({...newComplaint, attachment_url: URL.createObjectURL(e.target.files[0])});
-                     }
-                   }}
-                   className="w-full bg-slate-50 border border-slate-100 p-3 rounded-2xl text-sm font-bold text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 transition-all cursor-pointer"
-                 />
-                 {newComplaint.attachment_url && (
-                   <p className="text-[10px] text-emerald-600 font-bold mt-1">File berhasil dilampirkan.</p>
-                 )}
-              </div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Bukti Laporan (Opsional)</label>
+                  
+                  {/* Preview thumbnail sebelum/sesudah upload */}
+                  {previewUrl && (
+                    <div className="relative w-full">
+                      <img 
+                        src={previewUrl} 
+                        alt="Preview lampiran" 
+                        className="w-full max-h-40 object-contain rounded-2xl border border-emerald-100 bg-slate-50"
+                        onError={() => setPreviewUrl(null)}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveFile}
+                        className="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-600 transition-colors shadow-md"
+                        title="Hapus file"
+                      >
+                        ×
+                      </button>
+                      {isUploading && (
+                        <div className="absolute inset-0 bg-white/80 rounded-2xl flex items-center justify-center">
+                          <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                          <span className="ml-2 text-xs font-bold text-emerald-600">Mengupload...</span>
+                        </div>
+                      )}
+                      {newComplaint.attachment_url && !isUploading && (
+                        <div className="absolute bottom-2 left-2 bg-emerald-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-md">
+                          ✓ Tersimpan di server
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-              <div className="flex gap-4 pt-4">
-                 <Button type="button" variant="secondary" className="flex-1" onClick={() => setShowReportForm(false)}>Batal</Button>
-                 <Button type="submit" className="flex-1">Kirim Laporan</Button>
-              </div>
+                  {!previewUrl && (
+                    <input 
+                      ref={fileInputRef}
+                      type="file" 
+                      accept="image/jpeg,image/png,image/gif,image/webp,.pdf"
+                      onChange={handleFileChange}
+                      className="w-full bg-slate-50 border border-slate-100 p-3 rounded-2xl text-sm font-bold text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 transition-all cursor-pointer"
+                    />
+                  )}
+
+                  {uploadError && (
+                    <p className="text-[10px] text-red-600 font-bold bg-red-50 border border-red-100 px-3 py-2 rounded-xl">{uploadError}</p>
+                  )}
+                  <p className="text-[10px] text-slate-400">Format: JPG, PNG, GIF, WEBP, PDF • Maks. 5MB</p>
+               </div>
+
+               <div className="flex gap-4 pt-4">
+                  <Button type="button" variant="secondary" className="flex-1" onClick={() => setShowReportForm(false)}>Batal</Button>
+                  <Button type="submit" className="flex-1" disabled={isUploading}>
+                    {isUploading ? 'Mengupload...' : 'Kirim Laporan'}
+                  </Button>
+               </div>
            </form>
         </Modal>
       </div>

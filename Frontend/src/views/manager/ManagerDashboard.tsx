@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Home, Bed, FileText, Settings, 
   CheckCircle2, XCircle, Clock, Search, Filter, MessageSquare, AlertTriangle, ArrowRight,
-  TrendingUp, CreditCard, DollarSign, ChevronRight
+  TrendingUp, CreditCard, DollarSign, ChevronRight, Download,
+  Eye, ImageIcon, ExternalLink, Shield
 } from 'lucide-react';
 import { useApp } from '../../App';
 import { Booking, Kamar, Keluhan, RoomStatus, Payment } from '../../types';
@@ -75,13 +76,39 @@ const FinancialHistory = () => {
    const { state } = useApp();
    const [search, setSearch] = useState('');
    const [sortBy, setSortBy] = useState<'date_desc'|'date_asc'|'amount_desc'|'amount_asc'>('date_desc');
+   const [apiPayments, setApiPayments] = useState<Payment[]>([]);
+   const [apiBookings, setApiBookings] = useState<Booking[]>([]);
+   const [loading, setLoading] = useState(true);
 
-   let successPayments = state.payments.filter(p => p.status === 'SUCCESS');
+   useEffect(() => {
+     const fetchData = async () => {
+       try {
+         const [pRes, bRes] = await Promise.all([
+           fetch('http://127.0.0.1:8000/api/v1/admin/payments'),
+           fetch('http://127.0.0.1:8000/api/v1/admin/bookings'),
+         ]);
+         const [pJson, bJson] = await Promise.all([pRes.json(), bRes.json()]);
+         if (pJson.success) setApiPayments(pJson.data);
+         if (bJson.success) setApiBookings(bJson.data);
+       } catch {
+         // fallback: gunakan state lokal
+       } finally {
+         setLoading(false);
+       }
+     };
+     fetchData();
+   }, []);
+
+   // Gabungkan data API + lokal (API diprioritaskan jika tersedia)
+   const allPayments = apiPayments.length > 0 ? apiPayments : state.payments;
+   const allBookings = apiBookings.length > 0 ? apiBookings : state.bookings;
+
+   let successPayments = allPayments.filter(p => p.status === 'SUCCESS');
 
    if (search) {
        const lowerSearch = search.toLowerCase();
        successPayments = successPayments.filter(p => {
-           const booking = state.bookings.find(b => b.id === p.booking_id);
+           const booking = allBookings.find(b => b.id === p.booking_id);
            return p.id.toLowerCase().includes(lowerSearch) || 
                   (booking?.user_name || '').toLowerCase().includes(lowerSearch) ||
                   p.metode.toLowerCase().includes(lowerSearch);
@@ -96,6 +123,42 @@ const FinancialHistory = () => {
        return 0;
    });
 
+   const totalRevenue = successPayments.reduce((acc, p) => acc + p.jumlah, 0);
+
+   // ── Download CSV ─────────────────────────────────────────────
+   const handleDownload = () => {
+     const rows = [
+       ['ID Transaksi', 'Tanggal', 'Penyewa', 'Kamar', 'Metode', 'Nominal', 'Midtrans ID'],
+       ...successPayments.map(p => {
+         const booking = allBookings.find(b => b.id === p.booking_id);
+         const kamar = state.kamars.find(k => k.id === booking?.kamar_id);
+         return [
+           p.id,
+           p.tanggal,
+           booking?.user_name || 'System',
+           kamar ? `Kamar ${kamar.nomor}` : '-',
+           p.metode,
+           p.jumlah.toString(),
+           p.midtrans_id || 'MANUAL',
+         ];
+       }),
+       [],
+       ['', '', '', '', 'TOTAL PENDAPATAN', totalRevenue.toString(), ''],
+     ];
+
+     const csvContent = rows
+       .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+       .join('\n');
+
+     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+     const url = URL.createObjectURL(blob);
+     const link = document.createElement('a');
+     link.href = url;
+     link.download = `laporan-keuangan-${new Date().toISOString().split('T')[0]}.csv`;
+     link.click();
+     URL.revokeObjectURL(url);
+   };
+
    return (
       <div className="space-y-8 max-w-5xl">
          <div className="flex justify-between items-center">
@@ -103,7 +166,7 @@ const FinancialHistory = () => {
                <h1 className="text-3xl font-serif">Riwayat Pembayaran</h1>
                <p className="text-slate-500 text-sm mt-1">Laporan arus kas masuk dari seluruh tenant.</p>
             </div>
-            <Button variant="secondary" className="gap-2">
+            <Button variant="secondary" className="gap-2" onClick={handleDownload}>
                <Download className="w-4 h-4" /> Download Laporan
             </Button>
          </div>
@@ -138,25 +201,38 @@ const FinancialHistory = () => {
                </div>
                <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Transaksi</p>
-                  <p className="text-lg font-bold">{successPayments.length}</p>
+                  <p className="text-lg font-bold">{loading ? '...' : successPayments.length}</p>
                </div>
             </div>
-            {/* Add more stats if needed */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+               <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
+                  <CreditCard className="w-6 h-6" />
+               </div>
+               <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Pendapatan</p>
+                  <p className="text-lg font-bold font-mono text-emerald-600">{loading ? '...' : formatRupiah(totalRevenue)}</p>
+               </div>
+            </div>
          </div>
 
          <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden text-left">
+            {loading ? (
+              <div className="py-20 text-center text-slate-400">Memuat data pembayaran...</div>
+            ) : successPayments.length === 0 ? (
+              <div className="py-20 text-center text-slate-400">Tidak ada data pembayaran.</div>
+            ) : (
             <table className="w-full text-sm">
                <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
-                     <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID / Tanggal</th>
-                     <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Penyewa / Kamar</th>
-                     <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Metode</th>
+                     <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">ID / Tanggal</th>
+                     <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">Penyewa / Kamar</th>
+                     <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">Metode</th>
                      <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Nominal</th>
                   </tr>
                </thead>
                <tbody className="divide-y divide-slate-50">
                   {successPayments.map(p => {
-                     const booking = state.bookings.find(b => b.id === p.booking_id);
+                     const booking = allBookings.find(b => b.id === p.booking_id);
                      const kamar = state.kamars.find(k => k.id === booking?.kamar_id);
                      return (
                         <tr key={p.id} className="hover:bg-slate-50/50 transition-all">
@@ -166,7 +242,7 @@ const FinancialHistory = () => {
                            </td>
                            <td className="px-8 py-6">
                               <p className="font-bold text-slate-900">{booking?.user_name || 'System'}</p>
-                              <p className="text-[10px] text-emerald-600 font-bold uppercase">Room {kamar?.nomor}</p>
+                              <p className="text-[10px] text-emerald-600 font-bold uppercase">Room {kamar?.nomor || '-'}</p>
                            </td>
                            <td className="px-8 py-6">
                               <span className="px-3 py-1 bg-slate-100 rounded-full text-[9px] font-bold uppercase tracking-widest text-slate-500">
@@ -181,6 +257,7 @@ const FinancialHistory = () => {
                   })}
                </tbody>
             </table>
+            )}
          </div>
       </div>
    );
@@ -371,25 +448,53 @@ const RoomDetailModal: React.FC<{
 
 const KeluhanList = () => {
     const { state, dispatch } = useApp();
-    const [assigneeModal, setAssigneeModal] = useState<{isOpen: boolean, keluhanId: string, currentAssignee: string}>({ isOpen: false, keluhanId: '', currentAssignee: '' });
-    const [selectedAssignee, setSelectedAssignee] = useState('');
+    const [keluhans, setKeluhans] = useState<Keluhan[]>([]);
+    const [loadingKeluhan, setLoadingKeluhan] = useState(true);
+
+    const fetchKeluhans = useCallback(async () => {
+      setLoadingKeluhan(true);
+      try {
+        const res = await fetch('http://127.0.0.1:8000/api/v1/admin/complaints');
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setKeluhans(json.data);
+        } else {
+          setKeluhans(state.keluhans);
+        }
+      } catch {
+        setKeluhans(state.keluhans);
+      } finally {
+        setLoadingKeluhan(false);
+      }
+    }, [state.keluhans]);
+
+    useEffect(() => { fetchKeluhans(); }, []);
+
+    useEffect(() => {
+      if (!loadingKeluhan && keluhans.length === 0) {
+        setKeluhans(state.keluhans);
+      }
+    }, [state.keluhans]);
     
-    const handleStatusUpdate = (id: string, newStatus: string) => {
+    const handleStatusUpdate = async (id: string, newStatus: string) => {
+       try {
+         await fetch(`http://127.0.0.1:8000/api/v1/admin/complaints/${id}`, {
+           method: 'PUT',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ status: newStatus }),
+         });
+       } catch {}
        dispatch({
           type: 'UPDATE_KELUHAN',
           payload: { id, data: { status: newStatus } }
        });
+       setKeluhans(prev => prev.map(k => k.id === id ? { ...k, status: newStatus as any } : k));
     };
 
-    const handleDelegate = () => {
-       if (assigneeModal.keluhanId && selectedAssignee) {
-           dispatch({
-               type: 'UPDATE_KELUHAN',
-               payload: { id: assigneeModal.keluhanId, data: { assigned_to: selectedAssignee, status: 'IN_PROGRESS' } }
-           });
-           setAssigneeModal({ isOpen: false, keluhanId: '', currentAssignee: '' });
-       }
-    };
+    const displayKeluhans = keluhans.length > 0 ? keluhans : state.keluhans;
+
+    // State untuk Review Modal
+    const [reviewKeluhan, setReviewKeluhan] = useState<Keluhan | null>(null);
 
     return (
         <div className="space-y-10 max-w-6xl">
@@ -398,117 +503,190 @@ const KeluhanList = () => {
                <p className="text-slate-500 mt-1">Tangani permintaan perbaikan dan laporan gangguan dari tenant.</p>
             </div>
 
+            {loadingKeluhan ? (
+              <div className="py-20 text-center text-slate-400">Memuat data keluhan...</div>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-               {state.keluhans.map(k => {
-                   const routing = ComplaintStrategy.route(k.deskripsi);
+               {displayKeluhans.map(k => {
                    return (
                        <div key={k.id} className={cn(
-                          "bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-8 relative transition-all hover:shadow-xl",
+                          "bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm space-y-6 relative transition-all hover:shadow-xl",
                           k.status === 'RESOLVED' && "opacity-60 grayscale hover:grayscale-0"
                        )}>
-                           <div className="flex justify-between items-start">
-                               <div className="space-y-3">
-                                  <div className="flex items-center gap-3">
+                           {/* Header card */}
+                           <div className="flex justify-between items-start gap-4">
+                               <div className="space-y-3 min-w-0 flex-1">
+                                  <div className="flex items-center gap-3 flex-wrap">
                                      <span className={cn(
-                                       "px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] shadow-sm",
+                                       "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] shadow-sm shrink-0",
                                        k.priority === 'HIGH' ? "bg-red-500 text-white" : "bg-orange-400 text-white"
                                      )}>
                                         {k.priority} Priority
                                      </span>
                                      <span className={cn(
-                                        "px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] border",
+                                        "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border shrink-0",
                                         k.status === 'RESOLVED' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-50 text-slate-400 border-slate-100"
                                      )}>
                                         {k.status}
                                      </span>
                                   </div>
                                   <div>
-                                     <h3 className="text-2xl font-serif text-slate-900">Unit {k.kamar_nomor}</h3>
-                                     <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">{k.id} • {k.user_name}</p>
+                                     <h3 className="text-xl font-serif text-slate-900">Unit {k.kamar_nomor}</h3>
+                                     <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1 truncate">{k.id} • {k.user_name}</p>
                                   </div>
                                </div>
-                               <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-3xl flex items-center justify-center group-hover:bg-emerald-50 group-hover:text-emerald-500 transition-all">
-                                  <MessageSquare className="w-8 h-8" />
+                               <div className="w-14 h-14 bg-slate-50 text-slate-300 rounded-3xl flex items-center justify-center shrink-0">
+                                  <MessageSquare className="w-7 h-7" />
                                </div>
                            </div>
 
-                           <div className="p-6 bg-slate-50/80 rounded-[2rem] border border-slate-100/50 text-slate-700 leading-relaxed font-medium">
+                           {/* Deskripsi keluhan (preview 3 baris) */}
+                           <div className="p-5 bg-slate-50/80 rounded-[1.5rem] border border-slate-100/50 text-slate-700 leading-relaxed font-medium text-sm break-words line-clamp-3">
                               "{k.deskripsi}"
                            </div>
 
-                           <div className="flex items-center justify-between p-5 bg-emerald-600 text-white rounded-[2rem] shadow-lg shadow-emerald-100">
-                              <div className="flex items-center gap-4">
-                                 <AlertTriangle className="w-6 h-6 opacity-60" />
-                                 <div>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Delegasi Otomatis</p>
-                                    <p className="text-sm font-bold">{routing.assignee}</p>
-                                 </div>
-                              </div>
-                               <ArrowRight className="w-5 h-5 opacity-40" />
-                            </div>
+                           {/* Indikator foto lampiran */}
+                           {k.attachment_url && (
+                             <div className="flex items-center gap-2 text-xs text-emerald-600 font-bold">
+                               <ImageIcon className="w-4 h-4" />
+                               <span>Foto bukti tersedia</span>
+                             </div>
+                           )}
 
-                            <div className="flex gap-4 pt-4">
-                               <Button 
-                                  className="flex-1 py-4 text-sm"
-                                  onClick={() => {
-                                      setAssigneeModal({ isOpen: true, keluhanId: k.id, currentAssignee: k.assigned_to });
-                                      setSelectedAssignee(k.assigned_to || routing.assignee);
-                                  }}
-                               >
-                                  Delegasikan Tim
-                               </Button>
-                            </div>
+                           {/* Action buttons */}
+                           <div className="flex gap-3 pt-1">
+                              <Button
+                                 variant="secondary"
+                                 className="flex-1 py-3 text-sm gap-2"
+                                 onClick={() => setReviewKeluhan(k)}
+                              >
+                                 <Eye className="w-4 h-4" /> Review Keluhan
+                              </Button>
 
-                            {k.status !== 'RESOLVED' && (
-                              <div className="flex gap-4 pt-4">
-                                 <Button 
-                                    className="flex-1 py-4 text-sm shadow-xl shadow-emerald-100"
+                              {k.status !== 'RESOLVED' && (
+                                 <Button
+                                    className="flex-1 py-3 text-sm"
                                     onClick={() => handleStatusUpdate(k.id, 'RESOLVED')}
                                  >
-                                    Tandai Selesai
+                                    <CheckCircle2 className="w-4 h-4 mr-1" /> Tandai Selesai
                                  </Button>
-                                 <Button 
-                                    variant="secondary" 
-                                    className="flex-1 py-4 text-sm"
-                                    onClick={() => handleStatusUpdate(k.id, 'IN_PROGRESS')}
-                                 >
-                                    Proses Perbaikan
-                                 </Button>
-                              </div>
-                           )}
+                              )}
+                           </div>
                        </div>
                    );
                })}
-               {state.keluhans.length === 0 && (
+               {displayKeluhans.length === 0 && (
                   <div className="md:col-span-2 py-40 border-2 border-dashed border-slate-200 rounded-[4rem] flex flex-col items-center justify-center text-slate-300 gap-4">
                      <FileText className="w-16 h-16" />
                      <p className="font-serif text-xl">Belum ada laporan keluhan masuk.</p>
                   </div>
                )}
             </div>
+            )}
 
-            <Modal isOpen={assigneeModal.isOpen} onClose={() => setAssigneeModal({ isOpen: false, keluhanId: '', currentAssignee: '' })} title="Delegasi Tugas">
-                <div className="space-y-6">
-                    <p className="text-sm text-slate-500">Pilih tim yang akan menangani keluhan ini:</p>
-                    <select 
-                        value={selectedAssignee}
-                        onChange={(e) => setSelectedAssignee(e.target.value)}
-                        className="w-full border border-slate-200 rounded-xl p-4 text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500"
-                    >
-                        <option value="Staff Maintenance">Staff Maintenance</option>
-                        <option value="Teknisi AC/Listrik">Teknisi AC/Listrik</option>
-                        <option value="Tim Kebersihan">Tim Kebersihan</option>
-                        <option value="Security">Security</option>
-                        <option value="Admin Office">Admin Office</option>
-                    </select>
-                    <Button className="w-full py-4" onClick={handleDelegate}>Simpan & Delegasikan</Button>
+            {/* ── Review Keluhan Modal ───────────────────────────── */}
+            <Modal
+              isOpen={!!reviewKeluhan}
+              onClose={() => setReviewKeluhan(null)}
+              title="Detail Keluhan"
+              size="lg"
+            >
+              {reviewKeluhan && (
+                <div className="px-8 pb-8 pt-2 space-y-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        {reviewKeluhan.id} · {new Date(reviewKeluhan.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                      <h2 className="text-xl font-bold text-slate-900">Unit {reviewKeluhan.kamar_nomor}</h2>
+                      <p className="text-sm text-slate-500">{reviewKeluhan.user_name}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className={cn(
+                        "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest",
+                        reviewKeluhan.priority === 'HIGH' ? "bg-red-500 text-white" : "bg-orange-400 text-white"
+                      )}>
+                        {reviewKeluhan.priority} Priority
+                      </span>
+                      <span className={cn(
+                        "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border",
+                        reviewKeluhan.status === 'RESOLVED' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-50 text-slate-500 border-slate-200"
+                      )}>
+                        {reviewKeluhan.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Deskripsi Keluhan</p>
+                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 text-slate-700 leading-relaxed text-sm whitespace-pre-wrap break-words">
+                      {reviewKeluhan.deskripsi}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Foto Bukti</p>
+                    {reviewKeluhan.attachment_url ? (
+                      <div className="space-y-3">
+                        <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
+                          <img
+                            src={reviewKeluhan.attachment_url}
+                            alt="Foto bukti keluhan"
+                            className="w-full max-h-72 object-contain bg-slate-100"
+                          />
+                        </div>
+                        <a
+                          href={reviewKeluhan.attachment_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-xs text-emerald-600 font-bold hover:underline w-fit"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Buka foto di tab baru
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-10 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 gap-2">
+                        <ImageIcon className="w-10 h-10 opacity-30" />
+                        <p className="text-xs font-bold uppercase tracking-widest">Tidak ada foto yang dilampirkan</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {reviewKeluhan.assigned_to && (
+                    <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <Shield className="w-4 h-4 text-slate-400 shrink-0" />
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ditugaskan ke</p>
+                        <p className="text-sm font-bold text-slate-700">{reviewKeluhan.assigned_to}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 pt-2">
+                    <Button variant="secondary" className="flex-1" onClick={() => setReviewKeluhan(null)}>
+                      Tutup
+                    </Button>
+                    {reviewKeluhan.status !== 'RESOLVED' && (
+                      <Button
+                        className="flex-1 gap-2"
+                        onClick={() => {
+                          handleStatusUpdate(reviewKeluhan.id, 'RESOLVED');
+                          setReviewKeluhan(null);
+                        }}
+                      >
+                        <CheckCircle2 className="w-4 h-4" /> Tandai Selesai
+                      </Button>
+                    )}
+                  </div>
                 </div>
+              )}
             </Modal>
         </div>
     );
 };
 
-const Download = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
+const Download_old = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
 
 const PaymentVerification = () => {
     const { state, dispatch } = useApp();
