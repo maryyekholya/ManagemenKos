@@ -66,6 +66,8 @@ export interface Keluhan {
   priority: ComplaintPriority;
   created_at: string;
   resolved_at: string | null;
+  attachment_url?: string;
+  team_assigned?: string;
 }
 
 export interface Payment {

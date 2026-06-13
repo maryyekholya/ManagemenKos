@@ -1,10 +1,14 @@
 import React from 'react';
 import { Layout, MessageSquare } from 'lucide-react';
 import { ChatWidget } from '../../components/shared/ChatWidget';
+import { SidebarUserActions } from '../../components/shared/SidebarUserActions';
 
-export const OrganizerDashboard: React.FC = () => {
+export const OrganizerDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate }) => {
     return (
-        <div className="min-h-screen pt-20 bg-slate-50 flex items-center justify-center p-8">
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8 relative">
+            <div className="absolute top-6 right-6">
+                <SidebarUserActions onNavigate={onNavigate} />
+            </div>
             <div className="max-w-2xl w-full text-center space-y-8">
                 <div className="w-24 h-24 bg-indigo-100 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto shadow-xl">
                     <Layout className="w-12 h-12" />

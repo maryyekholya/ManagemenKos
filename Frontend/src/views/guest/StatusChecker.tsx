@@ -5,13 +5,15 @@ import { Booking } from '../../types';
 import { BookingMachine } from '../../lib/patterns';
 import { formatRupiah, cn } from '../../lib/utils';
 import { StatusBadge, Button, FormInput } from '../../components/shared/UI';
+import { QRPaymentModal } from '../../components/shared/QRPaymentModal';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const StatusChecker: React.FC = () => {
-    const { state } = useApp();
+    const { state, dispatch } = useApp();
     const [searchId, setSearchId] = useState('');
     const [foundBooking, setFoundBooking] = useState<Booking | null>(null);
     const [isSearching, setIsSearching] = useState(false);
+    const [showQR, setShowQR] = useState(false);
 
     const handleSearch = () => {
         setIsSearching(true);
@@ -21,6 +23,8 @@ export const StatusChecker: React.FC = () => {
             setIsSearching(false);
         }, 800);
     };
+
+    const foundKamar = foundBooking ? state.kamars.find(k => k.id === foundBooking.kamar_id) : null;
 
     return (
         <div className="pt-32 pb-20 bg-slate-50 min-h-screen">
@@ -96,12 +100,27 @@ export const StatusChecker: React.FC = () => {
                                </div>
                             </div>
 
-                            {foundBooking.status === 'MENUNGGU_PEMBAYARAN' && (
-                                <div className="p-6 bg-emerald-50 border border-emerald-100 rounded-3xl space-y-4">
-                                   <p className="text-sm font-bold text-emerald-800">Menunggu Pembayaran</p>
-                                   <p className="text-xs text-emerald-600 leading-relaxed">Silakan lakukan pembayaran sebesar <span className="font-bold">{formatRupiah(foundBooking.total)}</span> melalui metode {foundBooking.metode_bayar}.</p>
-                                   <Button className="w-full">Bayar Sekarang</Button>
-                                </div>
+                             {foundBooking.status === 'MENUNGGU_PEMBAYARAN' && (
+                                 <div className="p-6 bg-emerald-50 border border-emerald-100 rounded-3xl space-y-4">
+                                    <p className="text-sm font-bold text-emerald-800">Menunggu Pembayaran</p>
+                                    <p className="text-xs text-emerald-600 leading-relaxed">Silakan lakukan pembayaran sebesar <span className="font-bold">{formatRupiah(foundBooking.total)}</span> melalui metode {foundBooking.metode_bayar}.</p>
+                                    <Button 
+                                      className="w-full"
+                                      onClick={() => foundKamar && setShowQR(true)}
+                                      disabled={!foundKamar}
+                                    >
+                                      Bayar Sekarang
+                                    </Button>
+                                 </div>
+                             )}
+
+                            {foundKamar && (
+                                <QRPaymentModal 
+                                    isOpen={showQR} 
+                                    onClose={() => setShowQR(false)} 
+                                    booking={foundBooking} 
+                                    kamar={foundKamar} 
+                                />
                             )}
                         </motion.div>
                     ) : searchId && !isSearching ? (

@@ -13,6 +13,7 @@ import { ChatWidget } from '../../components/shared/ChatWidget';
 import { motion, AnimatePresence } from 'motion/react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { differenceInDays, addMonths, format } from 'date-fns';
 
 // PART 6 — BOOKING STATUS TIMELINE (User View)
 const BookingStatusTimeline: React.FC<{ status: RoomStatus, claimed: boolean }> = ({ status, claimed }) => {
@@ -444,11 +445,15 @@ const PaymentDetailModal: React.FC<{ isOpen: boolean, onClose: () => void, payme
   );
 };
 
+import { SidebarUserActions } from '../../components/shared/SidebarUserActions';
+
 export const UserDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate }) => {
   const { state, dispatch } = useApp();
   const [activeTab, setActiveTab] = useState('home');
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptBooking, setReceiptBooking] = useState<Booking | null>(null);
+  const [showExtendModal, setShowExtendModal] = useState(false);
+  const [extendBookingTarget, setExtendBookingTarget] = useState<Booking | null>(null);
 
   const tabs = [
     { id: 'home', label: 'Beranda', icon: Home },
@@ -456,12 +461,16 @@ export const UserDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ o
     { id: 'history', label: 'Riwayat Booking', icon: Clock },
     { id: 'payments', label: 'Riwayat Bayar', icon: CreditCard },
     { id: 'keluhan', label: 'Keluhan', icon: FileText },
-    { id: 'profil', label: 'Profil Saya', icon: UserIcon },
   ];
 
   const handleShowReceipt = (booking: Booking) => {
     setReceiptBooking(booking);
     setShowReceipt(true);
+  };
+
+  const handleExtendRent = (booking: Booking) => {
+    setExtendBookingTarget(booking);
+    setShowExtendModal(true);
   };
 
   const renderTab = () => {
@@ -472,24 +481,16 @@ export const UserDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ o
       case 'keluhan': return <UserKeluhan />;
       case 'profil': return <UserProfile />;
       case 'home':
-      default: return <UserHome setActiveTab={setActiveTab} onNavigate={onNavigate} onShowReceipt={handleShowReceipt} />;
+      default: return <UserHome setActiveTab={setActiveTab} onNavigate={onNavigate} onShowReceipt={handleShowReceipt} onExtendRent={handleExtendRent} />;
     }
   };
 
   return (
-    <div className="pt-20 bg-slate-50 min-h-screen">
+    <div className="bg-slate-50 min-h-screen">
       <div className="max-w-7xl mx-auto px-6 py-12 flex flex-col md:flex-row gap-12">
         {/* Sidebar */}
         <aside className="w-full md:w-64 space-y-6">
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 text-center space-y-4">
-             <div className="w-20 h-20 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto text-3xl font-bold">
-                {state.currentUser?.name.charAt(0)}
-             </div>
-             <div>
-                <h3 className="font-bold text-lg">{state.currentUser?.name}</h3>
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{state.currentUser?.role}</p>
-             </div>
-          </div>
+          <SidebarUserActions onNavigate={onNavigate} />
 
           <div className="bg-white p-4 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-1">
              {tabs.map(tab => (
@@ -524,11 +525,90 @@ export const UserDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ o
           booking={receiptBooking}
         />
       )}
+
+      {/* Modal Perpanjang Sewa */}
+      {showExtendModal && extendBookingTarget && (
+        <Modal 
+          isOpen={showExtendModal} 
+          onClose={() => setShowExtendModal(false)}
+          title="Perpanjang Masa Sewa"
+        >
+          <div className="space-y-6 text-center">
+             <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+               <Clock className="w-8 h-8" />
+             </div>
+             <div>
+               <h3 className="text-xl font-bold">Perpanjang Waktu Sewa</h3>
+               <p className="text-slate-500 text-sm mt-2">Masa sewa kamar {state.kamars.find(k => k.id === extendBookingTarget.kamar_id)?.nomor} saat ini akan berakhir pada <b>{extendBookingTarget.tgl_keluar}</b>. Tambah waktu 1 bulan?</p>
+             </div>
+             
+             <div className="bg-slate-50 p-4 rounded-xl text-left space-y-2 border border-slate-100">
+               <div className="flex justify-between text-sm">
+                 <span>Tambahan Durasi:</span>
+                 <span className="font-bold">+1 Bulan</span>
+               </div>
+               <div className="flex justify-between text-sm">
+                 <span>Tanggal Keluar Baru:</span>
+                 <span className="font-bold text-emerald-600">
+                   {format(addMonths(new Date(extendBookingTarget.tgl_keluar), 1), 'dd MMM yyyy')}
+                 </span>
+               </div>
+               <div className="flex justify-between text-sm border-t border-slate-200 pt-2 mt-2">
+                 <span>Total Biaya (Perpanjangan):</span>
+                 <span className="font-bold text-slate-900">{formatRupiah(state.kamars.find(k => k.id === extendBookingTarget.kamar_id)?.harga_per_bulan || 0)}</span>
+               </div>
+             </div>
+
+             <div className="flex gap-4">
+               <Button variant="secondary" className="flex-1" onClick={() => setShowExtendModal(false)}>Batal</Button>
+               <Button 
+                 className="flex-1" 
+                 onClick={() => {
+                   // Simulasi Pembayaran & Perpanjangan Langsung
+                   const harga = state.kamars.find(k => k.id === extendBookingTarget.kamar_id)?.harga_per_bulan || 0;
+                   const newTglKeluar = format(addMonths(new Date(extendBookingTarget.tgl_keluar), 1), 'yyyy-MM-dd');
+                   dispatch({
+                     type: 'UPDATE_BOOKING',
+                     payload: {
+                       id: extendBookingTarget.id,
+                       data: { 
+                         tgl_keluar: newTglKeluar, 
+                         durasi_bulan: extendBookingTarget.durasi_bulan + 1,
+                         total: extendBookingTarget.total + harga 
+                       }
+                     }
+                   });
+                   dispatch({
+                     type: 'ADD_PAYMENT',
+                     payload: {
+                       id: `PAY-EXT-${Date.now()}`,
+                       booking_id: extendBookingTarget.id,
+                       jumlah: harga,
+                       metode: 'TRANSFER_BANK',
+                       status: 'SUCCESS',
+                       tanggal: new Date().toLocaleDateString('id-ID'),
+                     }
+                   });
+                   alert('Sewa berhasil diperpanjang 1 bulan!');
+                   setShowExtendModal(false);
+                 }}
+               >
+                 Bayar & Perpanjang
+               </Button>
+             </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
 
-const UserHome = ({ setActiveTab, onNavigate, onShowReceipt }: { setActiveTab: (t: string) => void, onNavigate: (v: string) => void, onShowReceipt: (b: Booking) => void }) => {
+const calculateSisaSewa = (tgl_keluar: string) => {
+  const days = differenceInDays(new Date(tgl_keluar), new Date());
+  return days > 0 ? days : 0;
+};
+
+const UserHome = ({ setActiveTab, onNavigate, onShowReceipt, onExtendRent }: { setActiveTab: (t: string) => void, onNavigate: (v: string) => void, onShowReceipt: (b: Booking) => void, onExtendRent: (b: Booking) => void }) => {
   const { state } = useApp();
   const activeBooking = state.bookings.find(b => b.user_id === state.currentUser?.id && (b.status === 'DIHUNI' || b.status === 'DIKONFIRMASI' || b.status === 'DIPESAN'));
   const pendingBooking = state.bookings.find(b => b.user_id === state.currentUser?.id && b.status === 'MENUNGGU_PEMBAYARAN');
@@ -582,12 +662,18 @@ const UserHome = ({ setActiveTab, onNavigate, onShowReceipt }: { setActiveTab: (
                <div className="space-y-4">
                   <div className="flex items-start gap-3">
                      <Clock className="w-5 h-5 opacity-60" />
-                     <p className="text-xs">Sisa Sewa: <span className="font-bold">142 Hari</span></p>
+                     <p className="text-xs">Sisa Sewa: <span className="font-bold">{calculateSisaSewa(activeBooking.tgl_keluar)} Hari</span></p>
                   </div>
                   <div className="flex items-start gap-3">
                      <AlertCircle className="w-5 h-5 opacity-60" />
-                     <p className="text-xs">Berikutnya: <span className="font-bold">15 Feb 2025</span></p>
+                     <p className="text-xs">Berakhir pd: <span className="font-bold">{activeBooking.tgl_keluar}</span></p>
                   </div>
+                  <Button 
+                    className="w-full mt-4 bg-white text-emerald-700 hover:bg-emerald-50 shadow-md font-bold text-xs"
+                    onClick={() => onExtendRent(activeBooking)}
+                  >
+                    Perpanjang Sewa
+                  </Button>
                </div>
             </div>
          </div>
@@ -995,8 +1081,66 @@ const UserKeluhan = () => {
     const [newComplaint, setNewComplaint] = useState({
       booking_id: '',
       deskripsi: '',
-      priority: 'MEDIUM' as ComplaintPriority
+      priority: 'MEDIUM' as ComplaintPriority,
+      attachment_url: ''
     });
+
+    // Upload state
+    const [previewUrl, setPreviewUrl]     = useState<string | null>(null);
+    const [isUploading, setIsUploading]   = useState(false);
+    const [uploadError, setUploadError]   = useState<string | null>(null);
+    const fileInputRef                    = React.useRef<HTMLInputElement>(null);
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      // Validasi ukuran: maks 5MB
+      if (file.size > 5 * 1024 * 1024) {
+        setUploadError('Ukuran file melebihi batas 5MB.');
+        return;
+      }
+
+      setUploadError(null);
+      setIsUploading(true);
+      // Preview lokal sementara saat upload berlangsung
+      const localPreview = URL.createObjectURL(file);
+      setPreviewUrl(localPreview);
+
+      try {
+        const formData = new FormData();
+        formData.append('attachment', file);
+
+        const response = await fetch('http://127.0.0.1:8000/api/v1/complaints/upload-attachment', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const json = await response.json();
+
+        if (!response.ok || !json.success) {
+          setUploadError(json.message || 'Gagal mengupload file. Coba lagi.');
+          setPreviewUrl(null);
+          setNewComplaint(prev => ({ ...prev, attachment_url: '' }));
+        } else {
+          // Simpan URL publik dari backend
+          setNewComplaint(prev => ({ ...prev, attachment_url: json.data.url }));
+        }
+      } catch {
+        setUploadError('Tidak dapat terhubung ke server. Pastikan backend berjalan.');
+        setPreviewUrl(null);
+        setNewComplaint(prev => ({ ...prev, attachment_url: '' }));
+      } finally {
+        setIsUploading(false);
+      }
+    };
+
+    const handleRemoveFile = () => {
+      setPreviewUrl(null);
+      setUploadError(null);
+      setNewComplaint(prev => ({ ...prev, attachment_url: '' }));
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
 
     const userBookings = state.bookings.filter(b => b.user_id === state.currentUser?.id && ['DIKONFIRMASI', 'DIHUNI', 'SELESAI'].includes(b.status));
     const userKeluhans = state.keluhans.filter(k => userBookings.some(b => b.id === k.booking_id));
@@ -1018,7 +1162,8 @@ const UserKeluhan = () => {
         assigned_to: 'Staff Maintenance',
         priority: newComplaint.priority,
         created_at: new Date().toISOString(),
-        resolved_at: null
+        resolved_at: null,
+        attachment_url: newComplaint.attachment_url || undefined
       };
 
       dispatch({ type: 'ADD_KELUHAN', payload: complaint });
@@ -1039,7 +1184,7 @@ const UserKeluhan = () => {
       });
 
       setShowReportForm(false);
-      setNewComplaint({ booking_id: '', deskripsi: '', priority: 'MEDIUM' });
+      setNewComplaint({ booking_id: '', deskripsi: '', priority: 'MEDIUM', attachment_url: '' });
     };
 
     return (
@@ -1073,6 +1218,11 @@ const UserKeluhan = () => {
                         </div>
                         <h4 className="font-bold text-slate-900 line-clamp-1">{k.deskripsi}</h4>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Kamar {k.kamar_nomor} • {k.id}</p>
+                        {k.attachment_url && (
+                           <div className="mt-2 text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded inline-flex items-center gap-1">
+                              <FileText className="w-3 h-3" /> Ada Lampiran Bukti
+                           </div>
+                        )}
                      </div>
                      <span className={cn(
                        "text-[10px] font-bold px-3 py-1 rounded-lg uppercase tracking-widest",
@@ -1158,10 +1308,62 @@ const UserKeluhan = () => {
                  />
               </div>
 
-              <div className="flex gap-4 pt-4">
-                 <Button type="button" variant="secondary" className="flex-1" onClick={() => setShowReportForm(false)}>Batal</Button>
-                 <Button type="submit" className="flex-1">Kirim Laporan</Button>
-              </div>
+              <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Bukti Laporan (Opsional)</label>
+                  
+                  {/* Preview thumbnail sebelum/sesudah upload */}
+                  {previewUrl && (
+                    <div className="relative w-full">
+                      <img 
+                        src={previewUrl} 
+                        alt="Preview lampiran" 
+                        className="w-full max-h-40 object-contain rounded-2xl border border-emerald-100 bg-slate-50"
+                        onError={() => setPreviewUrl(null)}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveFile}
+                        className="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-600 transition-colors shadow-md"
+                        title="Hapus file"
+                      >
+                        ×
+                      </button>
+                      {isUploading && (
+                        <div className="absolute inset-0 bg-white/80 rounded-2xl flex items-center justify-center">
+                          <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                          <span className="ml-2 text-xs font-bold text-emerald-600">Mengupload...</span>
+                        </div>
+                      )}
+                      {newComplaint.attachment_url && !isUploading && (
+                        <div className="absolute bottom-2 left-2 bg-emerald-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-md">
+                          ✓ Tersimpan di server
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!previewUrl && (
+                    <input 
+                      ref={fileInputRef}
+                      type="file" 
+                      accept="image/jpeg,image/png,image/gif,image/webp,.pdf"
+                      onChange={handleFileChange}
+                      className="w-full bg-slate-50 border border-slate-100 p-3 rounded-2xl text-sm font-bold text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 transition-all cursor-pointer"
+                    />
+                  )}
+
+                  {uploadError && (
+                    <p className="text-[10px] text-red-600 font-bold bg-red-50 border border-red-100 px-3 py-2 rounded-xl">{uploadError}</p>
+                  )}
+                  <p className="text-[10px] text-slate-400">Format: JPG, PNG, GIF, WEBP, PDF • Maks. 5MB</p>
+               </div>
+
+               <div className="flex gap-4 pt-4">
+                  <Button type="button" variant="secondary" className="flex-1" onClick={() => setShowReportForm(false)}>Batal</Button>
+                  <Button type="submit" className="flex-1" disabled={isUploading}>
+                    {isUploading ? 'Mengupload...' : 'Kirim Laporan'}
+                  </Button>
+               </div>
            </form>
         </Modal>
       </div>
@@ -1177,8 +1379,28 @@ const UserProfile = () => {
     const [address, setAddress] = useState(user?.address || '');
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [showOTP, setShowOTP] = useState(false);
+    const [otpValue, setOtpValue] = useState('');
 
     if (!user) return <div className="text-center py-20 text-slate-400">Silakan login untuk melihat profil.</div>;
+
+    const handleVerifyEmail = () => {
+        // Send OTP Simulation
+        alert("OTP '1234' telah dikirimkan ke email Anda.");
+        setShowOTP(true);
+    };
+
+    const submitOTP = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (otpValue === '1234') {
+            dispatch({ type: 'VERIFY_USER', payload: user.email });
+            setShowOTP(false);
+            setMessage({ type: 'success', text: 'Email berhasil diverifikasi!' });
+            setTimeout(() => setMessage(null), 3000);
+        } else {
+            alert('Kode OTP salah!');
+        }
+    };
 
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
@@ -1208,6 +1430,19 @@ const UserProfile = () => {
                 <div className="label-upper">Pengaturan Profil</div>
                 <h1 className="text-3xl font-normal leading-tight">Detail Pengguna</h1>
             </div>
+
+            {!user.isVerified && (
+                <div className="p-6 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <AlertCircle className="w-8 h-8 text-amber-500 shrink-0" />
+                        <div>
+                            <h3 className="font-bold text-amber-900">Email Belum Diverifikasi</h3>
+                            <p className="text-xs text-amber-700 mt-1">Anda harus memverifikasi email untuk bisa memesan kamar dan menggunakan seluruh fitur NestIn.</p>
+                        </div>
+                    </div>
+                    <Button onClick={handleVerifyEmail} className="bg-amber-500 hover:bg-amber-600 border-none shrink-0 text-white">Verifikasi Sekarang</Button>
+                </div>
+            )}
 
             <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
                 <div className="p-8 md:p-12 space-y-10">
@@ -1289,10 +1524,29 @@ const UserProfile = () => {
                                 <p className="text-[11px] text-slate-500">{user.email}</p>
                             </div>
                         </div>
-                        <span className="text-[10px] font-bold text-emerald-600 uppercase bg-emerald-50 px-2 py-1 rounded-lg">Terverifikasi</span>
+                        {user.isVerified ? (
+                            <span className="text-[10px] font-bold text-emerald-600 uppercase bg-emerald-50 px-2 py-1 rounded-lg">Terverifikasi</span>
+                        ) : (
+                            <span className="text-[10px] font-bold text-amber-600 uppercase bg-amber-50 px-2 py-1 rounded-lg">Belum Terverifikasi</span>
+                        )}
                     </div>
                 </div>
             </div>
+
+            <Modal isOpen={showOTP} onClose={() => setShowOTP(false)} title="Verifikasi Email (OTP)" size="sm">
+               <form onSubmit={submitOTP} className="space-y-6 text-center">
+                  <p className="text-sm text-slate-500">Masukkan kode OTP 4-digit yang telah dikirim ke <b>{user.email}</b>. (Gunakan 1234 untuk demo)</p>
+                  <input 
+                     type="text" 
+                     maxLength={4}
+                     value={otpValue}
+                     onChange={(e) => setOtpValue(e.target.value)}
+                     className="w-full text-center text-3xl tracking-[1em] font-mono font-bold bg-slate-50 p-6 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500"
+                     required
+                  />
+                  <Button type="submit" className="w-full py-4">Verifikasi OTP</Button>
+               </form>
+            </Modal>
         </div>
     );
 };

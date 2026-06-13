@@ -33,11 +33,22 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
   });
 
   const finalPrice = PricingStrategy.calculate(kamar.harga_dasar, strategy);
-  const totalAmount = finalPrice * 1; 
+  const totalAmount = finalPrice * formData.duration;
   const totalOverall = finalPrice * formData.duration;
 
   const handleNext = () => setStep(s => s + 1);
   const handleBack = () => setStep(s => s - 1);
+
+  const handleAutofill = () => {
+    if (state.currentUser) {
+      setFormData({
+        ...formData,
+        name: state.currentUser.name,
+        email: state.currentUser.email,
+        phone: state.currentUser.phone || ''
+      });
+    }
+  };
 
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -166,6 +177,20 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
   return (
     <div className="pt-20 min-h-screen bg-slate-50">
       <div className="max-w-4xl mx-auto px-6 py-12 space-y-8">
+        {state.currentUser && !state.currentUser.isVerified && (
+           <div className="p-6 bg-amber-50 border border-amber-200 rounded-[2rem] flex items-center justify-between gap-4 mb-8">
+              <div className="flex items-center gap-4">
+                 <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shrink-0">
+                    <Mail className="w-6 h-6" />
+                 </div>
+                 <div>
+                    <h3 className="font-bold text-amber-900">Verifikasi Email Diperlukan</h3>
+                    <p className="text-sm text-amber-700">Anda harus memverifikasi email terlebih dahulu di Profil untuk dapat memesan kamar.</p>
+                 </div>
+              </div>
+           </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between">
            <button onClick={onCancel} className="text-sm font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">
@@ -203,7 +228,17 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
                   exit={{ opacity: 0, x: 20 }}
                   className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6"
                 >
-                  <h3 className="text-xl font-bold">Lengkapi Data Diri</h3>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-xl font-bold">Lengkapi Data Diri</h3>
+                    {state.currentUser && (
+                      <button 
+                        onClick={handleAutofill}
+                        className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full hover:bg-emerald-100 transition-colors flex items-center gap-1"
+                      >
+                        <User className="w-3 h-3" /> Gunakan Data Profil
+                      </button>
+                    )}
+                  </div>
                   <div className="space-y-4">
                     <FormInput label="Nama Lengkap" placeholder="Masukkan nama sesuai KTP" icon={<User className="w-5 h-5" />} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -216,7 +251,11 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
                     </div>
                     <FormInput label="Catatan Khusus (Opsional)" type="textarea" placeholder="Contoh: Butuh meja belajar tambahan..." value={formData.catatan} onChange={e => setFormData({...formData, catatan: e.target.value})} />
                   </div>
-                  <Button className="w-full py-4 text-lg mt-4" disabled={!formData.name || !formData.email || !formData.phone} onClick={handleNext}>
+                  <Button 
+                    className="w-full py-4 text-lg mt-4" 
+                    disabled={!formData.name || !formData.email || !formData.phone || (state.currentUser && !state.currentUser.isVerified)} 
+                    onClick={handleNext}
+                  >
                      Lanjutkan ke Pembayaran <ChevronRight className="w-5 h-5" />
                   </Button>
                 </motion.div>
@@ -301,7 +340,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
                         <span className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Total Pembayaran</span>
                         <span className="text-xl font-bold text-emerald-600 font-mono">{formatRupiah(totalAmount)}</span>
                      </div>
-                     <p className="text-[10px] text-slate-400 text-right italic font-medium">*Tagihan bulan pertama + Biaya admin</p>
+                     <p className="text-[10px] text-slate-400 text-right italic font-medium">*Total tagihan {formData.duration} bulan masa sewa</p>
                   </div>
 
                   <div className="p-4 bg-yellow-50 border border-yellow-100 rounded-2xl flex gap-3">
