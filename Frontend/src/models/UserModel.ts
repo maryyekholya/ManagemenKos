@@ -94,7 +94,6 @@ export const ROLE_LABEL: Record<Role, string> = {
   user: 'Penyewa',
   admin: 'Administrator',
   manager: 'Manajer',
-  organizer: 'Pengelola',
 };
 
 /** Warna badge per role untuk UI */
@@ -103,7 +102,6 @@ export const ROLE_COLOR: Record<Role, string> = {
   user: 'bg-blue-100 text-blue-700',
   admin: 'bg-red-100 text-red-700',
   manager: 'bg-purple-100 text-purple-700',
-  organizer: 'bg-emerald-100 text-emerald-700',
 };
 
 /** Role yang memiliki akses admin panel */

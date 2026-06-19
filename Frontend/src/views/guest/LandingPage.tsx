@@ -12,13 +12,22 @@ interface LandingPageProps {
   activeStrategy: PricingStrategyType;
   onBook: (kamar: Kamar) => void;
   dispatch: React.Dispatch<any>;
+  activeView?: string;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ kamars, activeStrategy, onBook, dispatch }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ kamars, activeStrategy, onBook, dispatch, activeView }) => {
   const [filterType, setFilterType] = useState<RoomType | 'All'>('All');
   const [maxPrice, setMaxPrice] = useState<number>(2500000);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedKamar, setSelectedKamar] = useState<Kamar | null>(null);
+
+  React.useEffect(() => {
+    if (activeView === 'landing-rooms') {
+      document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth' });
+    } else if (activeView === 'landing') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [activeView]);
 
   const filteredKamars = useMemo(() => {
     return kamars.filter(k => {
@@ -56,36 +65,56 @@ export const LandingPage: React.FC<LandingPageProps> = ({ kamars, activeStrategy
                </div>
              ))}
           </div>
-
-          <div className="pt-12 max-w-3xl">
-            <div className="bg-white p-2 border border-slate-200 flex flex-col md:flex-row gap-2 rounded-[4px]">
-              <div className="flex-1 flex items-center gap-4 px-6 py-3">
-                <Search className="w-5 h-5 text-slate-400" />
-                <input 
-                  type="text" 
-                  placeholder="Seach by room number or type..." 
-                  className="w-full bg-transparent outline-hidden text-sm"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <div className="md:w-56 flex items-center gap-4 px-6 py-3 border-t md:border-t-0 md:border-l border-slate-100">
-                <Filter className="w-5 h-5 text-slate-400" />
-                <select 
-                   className="w-full bg-transparent outline-hidden text-sm appearance-none"
-                   value={filterType}
-                   onChange={e => setFilterType(e.target.value as any)}
-                >
-                  <option value="All">All Types</option>
-                  <option value="Standard">Standard</option>
-                  <option value="Deluxe">Deluxe</option>
-                  <option value="Suite">Suite</option>
-                </select>
-              </div>
-              <Button className="rounded-[4px] px-12 py-3 bg-black text-white hover:bg-slate-800 transition-colors">Search</Button>
-            </div>
-          </div>
         </div>
+      </section>
+
+      {/* About NestIn Section */}
+      <section className="px-6 md:px-12 py-24 bg-emerald-900 text-emerald-50 relative overflow-hidden">
+         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-800 rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/3" />
+         <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-800 rounded-full blur-3xl opacity-50 translate-y-1/2 -translate-x-1/3" />
+         
+         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
+             <div className="space-y-6">
+                <div className="text-[11px] font-bold tracking-[0.2em] uppercase text-emerald-300">Tentang NestIn</div>
+                <h2 className="text-4xl md:text-5xl font-serif text-white leading-tight">
+                   Mendefinisikan ulang<br/>standar hidup modern.
+                </h2>
+                <div className="space-y-4 text-emerald-100/80 text-lg leading-relaxed">
+                   <p>
+                      NestIn bukan sekadar aplikasi manajemen kos. Kami adalah platform inovatif yang dirancang untuk menghubungkan pencari hunian dengan ruang hidup berkualitas tinggi secara transparan, mudah, dan sepenuhnya digital.
+                   </p>
+                   <p>
+                      Setiap properti yang terdaftar di NestIn telah melalui proses kurasi yang ketat. Mulai dari kebersihan, kelengkapan fasilitas, hingga keamanan lingkungan, kami memastikan setiap tenant mendapatkan pengalaman kos idaman tanpa pusing dengan urusan administrasi tradisional.
+                   </p>
+                </div>
+                <Button 
+                   variant="secondary" 
+                   className="mt-4 border-emerald-700 bg-emerald-800/50 hover:bg-emerald-700 text-white"
+                   onClick={() => document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth' })}
+                >
+                   Eksplorasi Kamar Kami
+                </Button>
+             </div>
+             
+             <div className="grid grid-cols-2 gap-6">
+                 <div className="bg-emerald-800/40 p-8 rounded-[2rem] border border-emerald-700/50 backdrop-blur-sm">
+                    <h3 className="text-4xl font-bold text-white font-mono mb-3">100%</h3>
+                    <p className="text-sm text-emerald-200">Verifikasi properti secara langsung oleh tim surveyor independen.</p>
+                 </div>
+                 <div className="bg-emerald-800/40 p-8 rounded-[2rem] border border-emerald-700/50 backdrop-blur-sm mt-12">
+                    <h3 className="text-4xl font-bold text-white font-mono mb-3">24/7</h3>
+                    <p className="text-sm text-emerald-200">Dukungan layanan pelanggan & sistem pelaporan keluhan cerdas.</p>
+                 </div>
+                 <div className="bg-emerald-800/40 p-8 rounded-[2rem] border border-emerald-700/50 backdrop-blur-sm -mt-12">
+                    <h3 className="text-4xl font-bold text-white font-mono mb-3 text-sm flex items-center h-[40px]">CASHLESS</h3>
+                    <p className="text-sm text-emerald-200">Sistem pembayaran QRIS otomatis terintegrasi langsung.</p>
+                 </div>
+                 <div className="bg-emerald-800/40 p-8 rounded-[2rem] border border-emerald-700/50 backdrop-blur-sm">
+                    <h3 className="text-4xl font-bold text-white font-mono mb-3 text-sm flex items-center h-[40px]">SMART</h3>
+                    <p className="text-sm text-emerald-200">Pemantauan tagihan dan arsip riwayat sewa dalam satu genggaman.</p>
+                 </div>
+             </div>
+         </div>
       </section>
 
       {/* Rooms Listing */}
@@ -123,6 +152,35 @@ export const LandingPage: React.FC<LandingPageProps> = ({ kamars, activeStrategy
                     <span className="text-sm font-bold text-emerald-600 font-mono w-24 text-right">{formatRupiah(maxPrice)}</span>
                  </div>
               </div>
+           </div>
+
+           <div className="w-full">
+             <div className="bg-slate-50 p-2 border border-slate-200 flex flex-col md:flex-row gap-2 rounded-2xl">
+               <div className="flex-1 flex items-center gap-4 px-6 py-3">
+                 <Search className="w-5 h-5 text-slate-400" />
+                 <input 
+                   type="text" 
+                   placeholder="Seach by room number or type..." 
+                   className="w-full bg-transparent outline-hidden text-sm"
+                   value={searchQuery}
+                   onChange={e => setSearchQuery(e.target.value)}
+                 />
+               </div>
+               <div className="md:w-56 flex items-center gap-4 px-6 py-3 border-t md:border-t-0 md:border-l border-slate-200">
+                 <Filter className="w-5 h-5 text-slate-400" />
+                 <select 
+                    className="w-full bg-transparent outline-hidden text-sm appearance-none font-medium text-slate-700"
+                    value={filterType}
+                    onChange={e => setFilterType(e.target.value as any)}
+                 >
+                   <option value="All">Semua Tipe</option>
+                   <option value="Standard">Standard</option>
+                   <option value="Deluxe">Deluxe</option>
+                   <option value="Suite">Suite</option>
+                 </select>
+               </div>
+               <Button className="rounded-xl px-12 py-3 bg-emerald-600 text-white hover:bg-emerald-700 transition-colors border-none shadow-md shadow-emerald-200">Cari</Button>
+             </div>
            </div>
 
            {filteredKamars.length > 0 ? (

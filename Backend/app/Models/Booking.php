@@ -5,6 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Services\Patterns\State\BookingContext;
+use App\Services\Patterns\State\TersediaState;
+use App\Services\Patterns\State\DipesanState;
+use App\Services\Patterns\State\MenungguPembayaranState;
+use App\Services\Patterns\State\DikonfirmasiState;
+use App\Services\Patterns\State\DihuniState;
 
 /**
  * Model Booking
@@ -54,5 +60,18 @@ class Booking extends Model
     public function getFormattedTotalAttribute(): string
     {
         return 'Rp ' . number_format($this->total, 0, ',', '.');
+    }
+
+    public function getStateContext(): BookingContext
+    {
+        $state = match($this->status) {
+            'DIPESAN' => new DipesanState(),
+            'MENUNGGU PEMBAYARAN' => new MenungguPembayaranState(),
+            'DIKONFIRMASI' => new DikonfirmasiState(),
+            'DIHUNI' => new DihuniState(),
+            default => new TersediaState(), // TERSEDIA or null
+        };
+
+        return new BookingContext($state);
     }
 }

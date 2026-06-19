@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Validator;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Auth\Events\Registered;
 
 class ApiAuthController extends Controller
 {
@@ -32,13 +33,14 @@ class ApiAuthController extends Controller
         }
 
         if (Auth::attempt($request->only('email', 'password'))) {
+            /** @var \App\Models\User $user */
             $user = Auth::user();
-            // Assuming you are using Sanctum for API tokens, but for now we'll just mock the token
-            // and return the actual user data from DB.
+            $token = $user->createToken('API Token')->plainTextToken;
+
             return response()->json([
                 'success' => true,
                 'message' => 'Login berhasil.',
-                'token' => 'mock-jwt-token-12345', // In real app: $user->createToken('API Token')->plainTextToken
+                'token' => $token,
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -78,6 +80,8 @@ class ApiAuthController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
+        
+        event(new Registered($user));
         
         return response()->json([
             'success' => true,

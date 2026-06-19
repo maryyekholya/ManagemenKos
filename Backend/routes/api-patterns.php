@@ -5,12 +5,6 @@
  * 
  * Pengaturan rute pada aplikasi ini menggunakan prinsip RESTful Resource Routing, 
  * dikelompokkan berdasarkan entitas agar lebih rapi dan mudah dikelola.
- * 
- * Konsep utama yang diterapkan:
- * 1. Prefix Grouping: Menggunakan `/api/v1/` untuk memudahkan manajemen versi API.
- * 2. Controller Mapping: Setiap rute terhubung langsung ke method di Controller yang sesuai.
- * 3. Middleware Injection: Proteksi endpoint dengan middleware auth dapat diatur per kelompok (group).
- * 4. Named Routes: Penamaan rute menggunakan `name()` untuk mempermudah pemanggilan rute di dalam aplikasi.
  */
 
 use Illuminate\Support\Facades\Route;
@@ -20,12 +14,9 @@ use App\Http\Controllers\Auth\ApiAuthController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AccountController;
 use App\Http\Controllers\ComplaintAttachmentController;
+use App\Http\Controllers\ComplaintController;
 
 Route::group(['prefix' => 'v1', 'as' => 'api.v1.'], function () {
-
-    // --- Admin Dashboard & Account Management ---
-    Route::get('/admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
-    Route::apiResource('/admin/users', AccountController::class);
 
     // --- Singleton & Strategy (Kamar) ---
     Route::get('/rooms', [RoomController::class, 'getAllRooms'])->name('rooms.index');
@@ -37,13 +28,38 @@ Route::group(['prefix' => 'v1', 'as' => 'api.v1.'], function () {
     Route::post('/auth/register', [ApiAuthController::class, 'register'])->name('auth.register');
     Route::post('/auth/google', [ApiAuthController::class, 'googleLogin'])->name('auth.google');
 
-    // --- State, Observer & Singleton (Booking) ---
-    Route::post('/bookings', [BookingController::class, 'createBooking'])->name('bookings.store');
-    Route::put('/bookings/{id}/proceed', [BookingController::class, 'proceedBooking'])->name('bookings.proceed');
-    Route::put('/bookings/{id}/extend', [BookingController::class, 'extendRent'])->name('bookings.extend');
+    // --- Protected Routes ---
+    Route::middleware('auth:sanctum')->group(function () {
+        
+        // --- State, Observer & Singleton (Booking) - General Users ---
+        Route::post('/bookings', [BookingController::class, 'createBooking'])->name('bookings.store');
+        Route::put('/bookings/{id}/proceed', [BookingController::class, 'proceedBooking'])->name('bookings.proceed');
+        Route::put('/bookings/{id}/pay', [BookingController::class, 'payBooking'])->name('bookings.pay');
+        Route::put('/bookings/{id}/checkout', [BookingController::class, 'checkOutBooking'])->name('bookings.checkout');
 
-    // --- Contoh Endpoints lainnya dapat ditambahkan sesuai entitas (Payment, Complaint) ---
+        // --- Complaint (User) ---
+        Route::post('/complaints', [ComplaintController::class, 'store'])->name('complaints.store');
+        Route::post('/complaints/upload-attachment', [ComplaintAttachmentController::class, 'upload'])->name('complaints.upload');
 
-    // --- Complaint Attachment Upload ---
-    Route::post('/complaints/upload-attachment', [ComplaintAttachmentController::class, 'upload'])->name('complaints.upload');
+        // --- Admin/Manager Only Routes ---
+        Route::middleware('role:manager,admin')->group(function () {
+            
+            Route::get('/admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
+            Route::apiResource('/admin/users', AccountController::class);
+
+            // Admin Booking
+            Route::put('/admin/bookings/{id}/approve', [BookingController::class, 'approveBooking'])->name('admin.bookings.approve');
+            Route::put('/admin/bookings/{id}/reject', [BookingController::class, 'rejectBooking'])->name('admin.bookings.reject');
+
+            // Admin Rooms (Manajemen Kamar)
+            Route::post('/admin/rooms', [RoomController::class, 'store'])->name('admin.rooms.store');
+            Route::put('/admin/rooms/{id}', [RoomController::class, 'update'])->name('admin.rooms.update');
+            Route::delete('/admin/rooms/{id}', [RoomController::class, 'destroy'])->name('admin.rooms.destroy');
+
+            // Admin Complaints
+            Route::get('/admin/complaints', [ComplaintController::class, 'index'])->name('admin.complaints.index');
+            Route::put('/admin/complaints/{id}/respond', [ComplaintController::class, 'respond'])->name('admin.complaints.respond');
+
+        });
+    });
 });

@@ -4,12 +4,20 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Services\Patterns\State\BookingContext;
-use App\Services\Patterns\State\PendingState;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+
+use App\Models\Booking;
+use App\Models\Kamar;
 use App\Services\Patterns\Observer\NotificationManager;
 use App\Services\Patterns\Observer\EmailObserver;
-use App\Services\Patterns\Observer\SMSObserver;
+use App\Services\Patterns\Observer\WhatsAppObserver;
+use App\Services\Patterns\Observer\PushNotifObserver;
 use App\Services\Patterns\Singleton\TransactionHistoryManager;
+
+use App\Services\Patterns\Strategy\TransferBankStrategy;
+use App\Services\Patterns\Strategy\DompetDigitalStrategy;
+use App\Services\Patterns\Strategy\QRISStrategy;
 
 class BookingController extends Controller
 {
@@ -19,72 +27,214 @@ class BookingController extends Controller
     {
         $this->notifier = new NotificationManager();
         $this->notifier->attach(new EmailObserver());
-        $this->notifier->attach(new SMSObserver());
+        $this->notifier->attach(new WhatsAppObserver());
+        $this->notifier->attach(new PushNotifObserver());
     }
 
     /**
-     * CREATE Booking (State: Pending)
+     * CREATE Booking (State: TERSEDIA -> DIPESAN)
      */
     public function createBooking(Request $request): JsonResponse
     {
-        $context = new BookingContext(new PendingState());
-        $status = $context->getStatus();
-
-        // Observer pattern in action
-        $this->notifier->notify("New booking created with status: $status");
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Booking created successfully',
-            'status' => $status
+        $request->validate([
+            'kamar_id' => 'required|exists:kamars,id',
+            'durasi_bulan' => 'required|integer|min:1',
         ]);
+
+        $kamar = Kamar::findOrFail($request->kamar_id);
+        $user = Auth::user();
+
+        // 1. Buat record Booking baru
+        $booking = new Booking();
+        $booking->user_id = $user->id;
+        $booking->user_name = $user->name;
+        $booking->kamar_id = $kamar->id;
+        $booking->durasi_bulan = $request->durasi_bulan;
+        $booking->total = $kamar->price * $request->durasi_bulan;
+        $booking->status = 'TERSEDIA'; // State awal
+        $booking->save();
+
+        try {
+            // 2. Ambil state context dan jalankan transisi
+            $context = $booking->getStateContext();
+            $context->pesan();
+
+            // 3. Simpan state baru
+            $booking->status = $context->getStatus();
+            $booking->save();
+
+            $this->notifier->notify("Booking #{$booking->id} dibuat dengan status: {$booking->status}");
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Kamar berhasil dipesan.',
+                'data' => $booking
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
     }
 
     /**
-     * UPDATE Booking (Proceed State)
+     * UPDATE Booking (Proceed State: DIPESAN -> MENUNGGU PEMBAYARAN)
      */
     public function proceedBooking(string $id): JsonResponse
     {
-        $context = new BookingContext(new PendingState());
-        $context->proceed(); // Transisi ke ConfirmedState
-        $newStatus = $context->getStatus();
+        $booking = Booking::findOrFail($id);
 
-        $this->notifier->notify("Booking $id status updated to: $newStatus");
-        
-        // Singleton pattern in action
-        TransactionHistoryManager::getInstance()->recordTransaction($id, 500000, $newStatus);
+        try {
+            $context = $booking->getStateContext();
+            $context->konfirmasiPesanan();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Booking proceeded successfully',
-            'new_status' => $newStatus
-        ]);
+            $booking->status = $context->getStatus();
+            $booking->save();
+
+            $this->notifier->notify("Booking #{$booking->id} dikonfirmasi, menunggu pembayaran.");
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pesanan dikonfirmasi.',
+                'data' => $booking
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
     }
 
     /**
-     * EXTEND RENT (Perpanjang Masa Sewa)
+     * PAY Booking (State: MENUNGGU PEMBAYARAN -> DIKONFIRMASI)
      */
-    public function extendRent(Request $request, string $id): JsonResponse
+    public function payBooking(Request $request, string $id): JsonResponse
     {
-        // Dalam implementasi nyata, akan mengambil dari database berdasarkan $id
-        // Simulasi logika bisnis perpanjangan durasi sewa
-        
-        $months = $request->input('months', 1);
-        $amount = $request->input('amount', 0); // Harga per bulan * months
-        
-        // Asumsi State masih Occupied/Confirmed, maka kita buat Payment Record baru
-        TransactionHistoryManager::getInstance()->recordTransaction($id, $amount, 'EXTEND_RENT_SUCCESS');
-        $this->notifier->notify("Booking $id diperpanjang selama $months bulan.");
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Durasi sewa berhasil diperpanjang',
-            'data' => [
-                'booking_id' => $id,
-                'added_months' => $months,
-                'total_amount_paid' => $amount,
-                // tgl_keluar yang baru dikalkulasikan di frontend dan direflect di DB nyata
-            ]
+        $request->validate([
+            'metode_pembayaran' => 'required|in:TRANSFER,DOMPET_DIGITAL,QRIS'
         ]);
+
+        $booking = Booking::findOrFail($id);
+
+        try {
+            // 1. Validasi State
+            $context = $booking->getStateContext();
+            $context->bayar(); // Jika belum 'MENUNGGU PEMBAYARAN', akan throw Exception
+
+            // 2. Terapkan Payment Strategy
+            $strategy = match($request->metode_pembayaran) {
+                'TRANSFER' => new TransferBankStrategy(),
+                'DOMPET_DIGITAL' => new DompetDigitalStrategy(),
+                'QRIS' => new QRISStrategy(),
+            };
+
+            $paymentResult = $strategy->pay($booking->total, $booking->toArray());
+
+            // 3. Simpan State dan Informasi Pembayaran
+            $booking->status = $context->getStatus();
+            $booking->metode_bayar = $request->metode_pembayaran;
+            $booking->catatan = 'Menunggu verifikasi admin.';
+            $booking->save();
+
+            TransactionHistoryManager::getInstance()->recordTransaction($id, $booking->total, $booking->status);
+            $this->notifier->notify("Pembayaran untuk Booking #{$booking->id} telah diterima.");
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pembayaran berhasil diinisiasi.',
+                'data' => $booking,
+                'payment_info' => $paymentResult
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * APPROVE Booking (State: DIKONFIRMASI -> DIHUNI) - Admin Only
+     */
+    public function approveBooking(string $id): JsonResponse
+    {
+        $booking = Booking::findOrFail($id);
+
+        try {
+            $context = $booking->getStateContext();
+            $context->approve();
+
+            $booking->status = $context->getStatus();
+            // Set tanggal masuk = sekarang, tgl keluar = skrg + durasi bulan
+            $booking->tgl_masuk = now();
+            $booking->tgl_keluar = now()->addMonths($booking->durasi_bulan);
+            $booking->save();
+
+            // Ubah status kamar di master data
+            $kamar = Kamar::findOrFail($booking->kamar_id);
+            $kamar->status = 'Dihuni';
+            $kamar->save();
+
+            $this->notifier->notify("Booking #{$booking->id} disetujui. Selamat datang!");
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Booking disetujui.',
+                'data' => $booking
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * REJECT Booking (State: DIKONFIRMASI -> TERSEDIA) - Admin Only
+     */
+    public function rejectBooking(string $id): JsonResponse
+    {
+        $booking = Booking::findOrFail($id);
+
+        try {
+            $context = $booking->getStateContext();
+            $context->tolak();
+
+            $booking->status = $context->getStatus();
+            $booking->save();
+
+            $this->notifier->notify("Booking #{$booking->id} ditolak karena pembayaran tidak valid.");
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Booking ditolak.',
+                'data' => $booking
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * CHECKOUT Booking (State: DIHUNI -> TERSEDIA)
+     */
+    public function checkOutBooking(string $id): JsonResponse
+    {
+        $booking = Booking::findOrFail($id);
+
+        try {
+            $context = $booking->getStateContext();
+            $context->checkOut();
+
+            $booking->status = $context->getStatus();
+            $booking->save();
+
+            // Ubah status kamar di master data kembali tersedia
+            $kamar = Kamar::findOrFail($booking->kamar_id);
+            $kamar->status = 'Tersedia';
+            $kamar->save();
+
+            $this->notifier->notify("Booking #{$booking->id} telah selesai. Terima kasih!");
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Checkout berhasil.',
+                'data' => $booking
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
     }
 }

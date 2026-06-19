@@ -119,7 +119,6 @@ const PAGE_TRANSITION_MAP: Record<string, PageConfig> = {
   'user-dashboard':    { variant: 'zoomInOut',  transition: dashboardTransition },
   'admin-dashboard':   { variant: 'zoomInOut',  transition: dashboardTransition },
   'manager-dashboard': { variant: 'zoomInOut',  transition: dashboardTransition },
-  'organizer-dashboard': { variant: 'zoomInOut', transition: dashboardTransition },
   'status-checker':    { variant: 'slideLeft',  transition: authTransition },
 };
 

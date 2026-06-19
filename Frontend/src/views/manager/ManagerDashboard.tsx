@@ -17,8 +17,33 @@ import { SidebarUserActions } from '../../components/shared/SidebarUserActions';
 
 export const ManagerDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate }) => {
     const { state, dispatch } = useApp();
-    const [activeTab, setActiveTab] = useState('kanban');
-    const [selectedTenant, setSelectedTenant] = useState<{id: string, name: string} | null>(null);
+    const activeTab = state.currentView.startsWith('manager-') && state.currentView !== 'manager-dashboard' 
+      ? state.currentView.replace('manager-', '') 
+      : 'kanban';
+
+    const setActiveTab = (tab: string) => {
+      if (tab === 'kanban') onNavigate('manager-dashboard');
+      else onNavigate(`manager-${tab}`);
+    };
+
+    // Realtime polling system untuk notifikasi keluhan
+    useEffect(() => {
+        const pollKeluhan = async () => {
+            try {
+                const res = await fetch('http://127.0.0.1:8000/api/v1/admin/complaints');
+                const json = await res.json();
+                if (json.success && Array.isArray(json.data)) {
+                    dispatch({ type: 'SET_KELUHANS', payload: json.data });
+                }
+            } catch (error) {
+                // Ignore silent errors during polling
+            }
+        };
+
+        pollKeluhan(); // Fetch initial data
+        const intervalId = setInterval(pollKeluhan, 3000); // Polling setiap 3 detik untuk efek realtime
+        return () => clearInterval(intervalId);
+    }, [dispatch]);
 
     return (
         <div className="flex h-screen overflow-hidden bg-slate-50 relative">
@@ -458,6 +483,7 @@ const KeluhanList = () => {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           setKeluhans(json.data);
+          dispatch({ type: 'SET_KELUHANS', payload: json.data });
         } else {
           setKeluhans(state.keluhans);
         }
@@ -491,7 +517,7 @@ const KeluhanList = () => {
        setKeluhans(prev => prev.map(k => k.id === id ? { ...k, status: newStatus as any } : k));
     };
 
-    const displayKeluhans = keluhans.length > 0 ? keluhans : state.keluhans;
+    const displayKeluhans = (keluhans.length > 0 ? keluhans : state.keluhans).filter(k => k.status !== 'RESOLVED');
 
     // State untuk Review Modal
     const [reviewKeluhan, setReviewKeluhan] = useState<Keluhan | null>(null);
@@ -582,6 +608,51 @@ const KeluhanList = () => {
                   </div>
                )}
             </div>
+            )}
+
+            {/* Riwayat Keluhan Selesai */}
+            {keluhans.filter(k => k.status === 'RESOLVED').length > 0 && (
+               <div className="mt-12">
+                  <h3 className="text-xl font-serif text-slate-400 mb-6 flex items-center gap-2">
+                     <CheckCircle2 className="w-5 h-5" /> Riwayat Keluhan Selesai
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 opacity-60">
+                     {keluhans.filter(k => k.status === 'RESOLVED').map(k => (
+                        <div key={k.id} className="bg-slate-50 p-8 rounded-[3rem] border border-slate-200 shadow-sm space-y-6 relative transition-all hover:opacity-100">
+                           <div className="flex justify-between items-start gap-4">
+                               <div className="space-y-3 min-w-0 flex-1">
+                                  <div className="flex items-center gap-3 flex-wrap">
+                                     <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] bg-emerald-100 text-emerald-700 shrink-0">
+                                        SELESAI
+                                     </span>
+                                  </div>
+                                  <div>
+                                     <h3 className="text-xl font-serif text-slate-600">Unit {k.kamar_nomor}</h3>
+                                     <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1 truncate">{k.id} • {k.user_name}</p>
+                                  </div>
+                               </div>
+                               <div className="w-14 h-14 bg-white text-emerald-300 rounded-3xl flex items-center justify-center shrink-0 shadow-sm border border-slate-100">
+                                  <CheckCircle2 className="w-7 h-7" />
+                               </div>
+                           </div>
+
+                           <div className="p-5 bg-white rounded-[1.5rem] border border-slate-100/50 text-slate-500 leading-relaxed font-medium text-sm break-words line-clamp-2">
+                              "{k.deskripsi}"
+                           </div>
+                           
+                           <div className="flex gap-3 pt-1">
+                              <Button
+                                 variant="secondary"
+                                 className="flex-1 py-3 text-sm gap-2 bg-white"
+                                 onClick={() => setReviewKeluhan(k)}
+                              >
+                                 <Eye className="w-4 h-4" /> Lihat Detail
+                              </Button>
+                           </div>
+                        </div>
+                     ))}
+                  </div>
+               </div>
             )}
 
             {/* ── Review Keluhan Modal ───────────────────────────── */}
@@ -696,10 +767,15 @@ const PaymentVerification = () => {
 
     const handleVerify = (booking: Booking, isValid: boolean) => {
         if (isValid) {
-            // Update booking to DIKONFIRMASI
+            // Update booking to DIHUNI
             dispatch({
                 type: 'UPDATE_BOOKING',
-                payload: { id: booking.id, data: { status: 'DIKONFIRMASI' } }
+                payload: { id: booking.id, data: { status: 'DIHUNI' } }
+            });
+            // Update Kamar to DIHUNI
+            dispatch({
+                type: 'UPDATE_KAMAR',
+                payload: { id: booking.kamar_id, data: { status: 'DIHUNI' } }
             });
             // Record payment
             dispatch({

@@ -510,7 +510,15 @@ import { SidebarUserActions } from '../../components/shared/SidebarUserActions';
 
 export const AdminDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate }) => {
   const { state } = useApp();
-  const [activeTab, setActiveTab] = useState('overview');
+  const activeTab = state.currentView.startsWith('admin-') && state.currentView !== 'admin-dashboard' 
+    ? state.currentView.replace('admin-', '') 
+    : 'overview';
+
+  const setActiveTab = (tab: string) => {
+    if (tab === 'overview') onNavigate('admin-dashboard');
+    else onNavigate(`admin-${tab}`);
+  };
+
   const [selectedChatUser, setSelectedChatUser] = useState<User | null>(null);
 
   const menuItems = [
@@ -519,7 +527,6 @@ export const AdminDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ 
     { id: 'kamar',       label: 'Manajemen Kamar',   icon: Bed },
     { id: 'booking',     label: 'Booking & Tenant',  icon: ClipboardList },
     { id: 'pembayaran',  label: 'Pembayaran',         icon: CreditCard },
-    { id: 'keluhan',     label: 'Keluhan',            icon: ClipboardList },
     { id: 'chat',        label: 'Chat Tenant',        icon: MessageSquare },
     { id: 'laporan',     label: 'Laporan Keuangan',  icon: PieChart },
     { id: 'pengaturan',  label: 'Pengaturan',         icon: Settings },
@@ -532,7 +539,6 @@ export const AdminDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ 
       case 'kamar':      return <AdminKamar />;
       case 'booking':    return <AdminBooking />;
       case 'pembayaran': return <AdminPembayaran />;
-      case 'keluhan':    return <AdminKeluhan />;
       case 'chat':       return <AdminChat selectedUser={selectedChatUser} setSelectedUser={setSelectedChatUser} />;
       case 'laporan':    return <AdminLaporan />;
       case 'pengaturan': return <AdminSettings />;
@@ -560,12 +566,6 @@ export const AdminDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ 
             >
               <item.icon className="w-4 h-4" />
               {item.label}
-              {/* Keluhan badge */}
-              {item.id === 'keluhan' && state.keluhans.filter((k: any) => k.status === 'OPEN').length > 0 && (
-                <span className="ml-auto bg-red-500 text-white text-[9px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {state.keluhans.filter((k: any) => k.status === 'OPEN').length}
-                </span>
-              )}
             </button>
           ))}
         </div>

@@ -47,9 +47,6 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ roomId: initialRoomId, t
         availableRooms.push({ id: initialRoomId, name: `Tenant: ${initialTargetName}`, type: 'tenant' });
       }
       availableRooms.push({ id: 'admin-manager', name: 'Manager Coordination', type: 'internal' });
-      availableRooms.push({ id: 'admin-organizer', name: 'Organizer System', type: 'internal' });
-    } else if (state.currentUser.role === 'organizer') {
-      availableRooms.push({ id: 'admin-organizer', name: 'Admin Control', type: 'internal' });
     }
 
     setRooms(availableRooms);

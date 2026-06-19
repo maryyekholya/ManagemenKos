@@ -117,6 +117,5 @@ export const DEMO_USERS = [
   { email: 'user@nestin.id', password: 'user123', role: 'user', name: 'Budi Santoso', id: 'USR001' },
   { email: 'admin@nestin.id', password: 'admin123', role: 'admin', name: 'Sari Dewi', id: 'ADM001' },
   { email: 'manager@nestin.id', password: 'manager123', role: 'manager', name: 'Hendra Wijaya', id: 'MGR001' },
-  { email: 'organizer@nestin.id', password: 'organizer123', role: 'organizer', name: 'Andi Organizer', id: 'ORG001' },
   { email: 'newuser@nestin.id', password: 'user123', role: 'user', name: 'Siti Aminah', id: 'USR004' },
 ];

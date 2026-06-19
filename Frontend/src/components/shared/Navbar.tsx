@@ -43,7 +43,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, activeView, onNa
     guest: [
       { label: 'Beranda', view: 'landing', icon: Home },
       { label: 'Kamar', view: 'landing-rooms', icon: Bed },
-      { label: 'Cek Booking', view: 'status-checker', icon: ClipboardList },
     ],
     user: [
       { label: 'Dashboard', view: 'user-dashboard', icon: Home },
@@ -59,10 +58,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, activeView, onNa
       { label: 'Dashboard', view: 'manager-dashboard', icon: Home },
       { label: 'Kanban Board', view: 'manager-kanban', icon: Bed },
       { label: 'Keluhan', view: 'manager-keluhan', icon: FileText },
-    ],
-    organizer: [
-      { label: 'Portal', view: 'organizer-dashboard', icon: Home },
-      { label: 'Koordinasi', view: 'organizer-coordination', icon: ClipboardList },
     ]
   };
 
@@ -130,11 +125,11 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, activeView, onNa
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute top-full right-0 mt-3 w-80 md:w-96 bg-white rounded-[2rem] shadow-2xl border border-slate-100 overflow-hidden z-50"
+                    className="absolute top-full right-0 md:-right-2 mt-4 w-80 md:w-96 glass-panel rounded-[2.5rem] overflow-hidden z-[100]"
                   >
-                    <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                    <div className="p-6 border-b border-white/40 flex items-center justify-between bg-white/40">
                        <h4 className="font-bold text-slate-900">Notifikasi</h4>
-                       <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-100">{unreadCount} Baru</span>
+                       <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">{unreadCount} Baru</span>
                     </div>
 
                     <div className="max-h-[70vh] overflow-y-auto">
@@ -239,12 +234,12 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, activeView, onNa
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
-                    className="absolute top-full right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-100 p-2"
+                    className="absolute top-full right-0 md:-right-2 mt-4 w-56 glass-panel rounded-3xl p-3 z-[100]"
                   >
-                    <button onClick={() => { onNavigate(user.role === 'user' ? 'user-profile' : 'admin-settings'); setIsProfileOpen(false); }} className="w-full flex items-center gap-2 p-3 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-xl transition-all">
+                    <button onClick={() => { onNavigate(user.role === 'user' ? 'user-profile' : 'admin-settings'); setIsProfileOpen(false); }} className="w-full flex items-center gap-3 p-3 text-sm font-bold text-slate-700 hover:bg-white/60 rounded-xl transition-all">
                       <Settings className="w-4 h-4" /> Pengaturan
                     </button>
-                    <button onClick={() => { onLogout(); setIsProfileOpen(false); }} className="w-full flex items-center gap-2 p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-xl transition-all">
+                    <button onClick={() => { onLogout(); setIsProfileOpen(false); }} className="w-full flex items-center gap-3 p-3 text-sm font-bold text-red-600 hover:bg-red-50/80 rounded-xl transition-all">
                       <LogOut className="w-4 h-4" /> Logout
                     </button>
                   </motion.div>
@@ -262,7 +257,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, activeView, onNa
             </button>
             <button 
               onClick={() => onNavigate('login')} 
-              className="bg-slate-900 px-6 py-2.5 text-white text-sm font-bold rounded-full hover:bg-slate-800 transition-all active:scale-95"
+              className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 px-6 py-2.5 text-white text-sm font-bold rounded-2xl transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(16,185,129,0.5)] active:scale-95"
             >
               Mulai Sekarang
             </button>

@@ -85,53 +85,71 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
       return;
     }
 
-    // Existing Midtrans for others
-    try {
-      const response = await fetch('/api/payment/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bookingId: bookingId,
-          amount: totalAmount,
-          customerDetails: {
-            first_name: formData.name,
-            email: formData.email,
-            phone: formData.phone,
-          },
-          itemDetails: [
-            {
-              id: kamar.id,
-              price: finalPrice,
-              quantity: 1,
-              name: `Booking Kamar ${kamar.nomor} (${formData.duration} Bulan)`
-            }
-          ]
-        })
+    if (formData.paymentMethod === 'Cash') {
+      const updatedBooking = { ...newBooking, status: 'MENUNGGU_PEMBAYARAN' as any, paymentClaimTimestamp: new Date().toISOString() };
+      const managerNotif = {
+        id: `N-REQ-${Date.now()}`,
+        type: 'PAYMENT_VERIFICATION_REQUEST',
+        recipient: 'manager', 
+        title: 'Verifikasi Pembayaran Tunai',
+        message: `${formData.name} telah memilih pembayaran Tunai untuk Kamar ${kamar.nomor}.`,
+        priority: 'HIGH',
+        action_required: true,
+        actions: ['KONFIRMASI', 'TOLAK'],
+        booking_id: newBooking.id,
+        tenant_name: formData.name,
+        kamar_nomor: kamar.nomor,
+        amount: totalAmount,
+        method: 'Cash',
+        created_at: new Date().toISOString(),
+        read: false
+      };
+      dispatch({ type: 'ADD_BOOKING', payload: updatedBooking });
+      dispatch({ type: 'ADD_NOTIFICATION', payload: managerNotif });
+      dispatch({ type: 'UPDATE_KAMAR', payload: { id: kamar.id, data: { status: 'DIPESAN' } } });
+      
+      setPaymentResult({
+         order_id: bookingId,
+         payment_type: 'Cash (Tunai)',
+         transaction_status: 'pending',
+         gross_amount: totalAmount
       });
-
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
-
-      // @ts-ignore
-      window.snap.pay(data.token, {
-        onSuccess: (result: any) => {
-          setPaymentResult(result);
-          setStep(4);
-        },
-        onPending: (result: any) => {
-          setCurrentBooking(newBooking);
-          onComplete(newBooking);
-        },
-        onError: () => {
-           alert('Pembayaran gagal!');
-           setIsProcessing(false);
-        },
-        onClose: () => setIsProcessing(false)
-      });
-    } catch (error: any) {
-      alert(`Error: ${error.message}`);
+      setStep(4);
       setIsProcessing(false);
+      return;
     }
+
+    // Bypass Midtrans for Transfer (Temporary)
+    const updatedBooking = { ...newBooking, status: 'MENUNGGU_PEMBAYARAN' as any };
+    const adminNotif = {
+      id: `N-REQ-${Date.now()}`,
+      type: 'PAYMENT_VERIFICATION_REQUEST',
+      recipient: 'admin',
+      title: 'Verifikasi Pembayaran Transfer',
+      message: `${formData.name} telah melakukan pembayaran Transfer untuk Kamar ${kamar.nomor}.`,
+      priority: 'HIGH',
+      action_required: true,
+      actions: ['KONFIRMASI', 'TOLAK'],
+      booking_id: newBooking.id,
+      tenant_name: formData.name,
+      kamar_nomor: kamar.nomor,
+      amount: totalAmount,
+      method: 'Transfer',
+      created_at: new Date().toISOString(),
+      read: false
+    };
+    dispatch({ type: 'ADD_BOOKING', payload: updatedBooking });
+    dispatch({ type: 'ADD_NOTIFICATION', payload: adminNotif });
+    dispatch({ type: 'UPDATE_KAMAR', payload: { id: kamar.id, data: { status: 'DIPESAN' } } });
+    
+    setPaymentResult({
+       order_id: bookingId,
+       payment_type: 'Transfer Bank',
+       transaction_status: 'pending',
+       gross_amount: totalAmount
+    });
+    setStep(4);
+    setIsProcessing(false);
   };
 
   const handleQRClaimed = () => {

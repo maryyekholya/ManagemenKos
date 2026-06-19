@@ -47,7 +47,7 @@ export const Modal: React.FC<{
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className={cn("relative w-full bg-white shadow-2xl overflow-hidden rounded-3xl", sizes[size])}
+          className={cn("relative w-full bg-white shadow-2xl overflow-hidden rounded-[2.5rem]", sizes[size])}
         >
           <div className="flex items-center justify-between p-8 border-b border-slate-100">
             <h3 className="text-lg font-bold uppercase tracking-tight">{title}</h3>
@@ -72,7 +72,7 @@ export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & {
     primary: 'btn-primary',
     secondary: 'btn-secondary',
     ghost: 'btn-ghost',
-    danger: 'px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center gap-2'
+    danger: 'px-6 py-3 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-bold rounded-2xl transition-all duration-300 hover:shadow-[0_8px_20px_-6px_rgba(220,38,38,0.5)] active:scale-95 flex items-center justify-center gap-2 text-sm border border-red-400/20 shadow-sm'
   };
 
   return (
@@ -107,9 +107,9 @@ export const FormInput: React.FC<{
         <InputComponent
           {...props as any}
           className={cn(
-            "w-full px-4 py-3 bg-white border border-slate-200 outline-hidden focus:border-slate-800 transition-all text-sm",
+            "w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-sm",
             icon && "pl-11",
-            error && "border-red-500 focus:border-red-500",
+            error && "border-red-500 focus:border-red-500 focus:ring-red-500/10",
             className
           )}
         />
