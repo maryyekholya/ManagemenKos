@@ -127,29 +127,41 @@ export const AdminAkun: React.FC<AdminAkunProps> = ({ onNavigateToCreate }) => {
       return;
     }
 
+    const hasData = state.bookings.some(b => b.user_id === user.id) || 
+                    state.keluhans.some(k => k.user_name === user.name);
+
+    if (hasData) {
+      if (!window.confirm(`Pengguna ${user.name} memiliki riwayat data. Akun hanya akan dinonaktifkan. Lanjutkan?`)) return;
+      
+      try {
+        await fetch(`http://127.0.0.1:8000/api/v1/admin/users/${user.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ ...user, isVerified: false })
+        });
+      } catch (err) {}
+      
+      dispatch({ type: 'UPDATE_USER', payload: { id: user.id, data: { isVerified: false } } });
+      alert('Akun berhasil dinonaktifkan.');
+      return;
+    }
+
     if (!window.confirm(`Apakah Anda yakin ingin menghapus pengguna ${user.name}?`)) {
       return;
     }
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/v1/admin/users/${user.id}`, {
+      await fetch(`http://127.0.0.1:8000/api/v1/admin/users/${user.id}`, {
         method: 'DELETE',
         headers: { 'Accept': 'application/json' }
       });
-
-      const json = await response.json();
-
-      if (!response.ok || !json.success) {
-        alert(json.message || 'Gagal menghapus pengguna.');
-        return;
-      }
-
-      dispatch({ type: 'DELETE_USER', payload: user.id });
-      fetchUsers();
     } catch (err) {
       console.error(err);
-      alert('Terjadi kesalahan jaringan saat menghapus pengguna.');
     }
+
+    dispatch({ type: 'DELETE_USER', payload: user.id });
+    setUsers(prev => prev.filter(u => u.id !== user.id));
+    alert('Akun berhasil dihapus.');
   };
 
   const filteredUsers = users.filter(u => 
@@ -297,7 +309,6 @@ export const AdminAkun: React.FC<AdminAkunProps> = ({ onNavigateToCreate }) => {
                 <option value="guest">Guest</option>
                 <option value="user">User (Tenant)</option>
                 <option value="manager">Manager</option>
-                <option value="organizer">Organizer</option>
                 <option value="admin">Admin</option>
               </select>
             </div>

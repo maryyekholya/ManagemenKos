@@ -9,7 +9,7 @@ export type PricingStrategyType = 'Normal' | 'Seasonal' | 'Discount';
 export type PaymentMethod = 'Transfer' | 'QRIS' | 'Cash';
 export type ComplaintStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
 export type ComplaintPriority = 'LOW' | 'MEDIUM' | 'HIGH';
-export type Role = 'guest' | 'user' | 'admin' | 'manager' | 'organizer';
+export type Role = 'guest' | 'user' | 'admin' | 'manager';
 
 export interface Kamar {
   id: string;

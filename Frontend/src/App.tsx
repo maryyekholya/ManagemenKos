@@ -19,8 +19,6 @@ import { LogIn, Check, Eye, EyeOff, KeyRound, ArrowLeft, Mail } from 'lucide-rea
 import { motion, AnimatePresence } from 'motion/react';
 
 import { ManagerDashboard } from './views/manager/ManagerDashboard';
-import { OrganizerDashboard } from './views/organizer/OrganizerDashboard';
-import { StatusChecker } from './views/guest/StatusChecker';
 
 // ═══════════════════════════════
 // CONTEXT DEFINITION
@@ -79,6 +77,7 @@ function appReducer(state: AppState, action: any): AppState {
     case 'ADD_PAYMENT': return { ...state, payments: [action.payload, ...state.payments] };
     case 'ADD_KELUHAN': return { ...state, keluhans: [action.payload, ...state.keluhans] };
     case 'UPDATE_KELUHAN': return { ...state, keluhans: state.keluhans.map(k => k.id === action.payload.id ? { ...k, ...action.payload.data } : k) };
+    case 'SET_KELUHANS': return { ...state, keluhans: action.payload };
     case 'ADD_NOTIFICATION': return { ...state, notifications: [action.payload, ...state.notifications] };
     case 'MARK_NOTIFICATIONS_READ': return { ...state, notifications: state.notifications.map(n => ({ ...n, read: true })) };
     case 'SET_STRATEGY': return { ...state, activeStrategy: action.payload };
@@ -106,7 +105,12 @@ export const useApp = () => {
 
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, {
-    currentUser: null,
+    currentUser: (() => {
+       try {
+         const saved = localStorage.getItem('nestin_user');
+         return saved ? JSON.parse(saved) : null;
+       } catch { return null; }
+    })(),
     users: DEMO_USERS.map(u => ({ id: u.id, name: u.name, email: u.email, password: u.password, isVerified: true, role: u.role as Role })),
     kamars: INITIAL_KAMAR,
     bookings: INITIAL_BOOKINGS,
@@ -122,6 +126,14 @@ export default function App() {
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [verifyingEmail, setVerifyingEmail] = useState<string | null>(null);
   const [backVariant, setBackVariant] = useState<'slideLeft' | 'slideRight' | undefined>();
+
+  useEffect(() => {
+    if (state.currentUser) {
+      localStorage.setItem('nestin_user', JSON.stringify(state.currentUser));
+    } else {
+      localStorage.removeItem('nestin_user');
+    }
+  }, [state.currentUser]);
 
   // [OBSERVER] Menginisiasi sistem notifikasi pemesanan untuk memantau event terbaru.
   useEffect(() => {
@@ -144,8 +156,12 @@ export default function App() {
       const hashView = window.location.hash.replace('#', '');
       if (hashView && hashView !== state.currentView) {
         // Enforce route protection
-        const protectedViews = ['user-dashboard', 'admin-dashboard', 'manager-dashboard', 'organizer-dashboard'];
-        const publicViews = ['landing', 'login', 'register', 'status'];
+        const protectedViews = [
+          'user-dashboard', 'user-bookings', 'user-profile', 'user-history', 'user-payments', 'user-keluhan',
+          'admin-dashboard', 'admin-kamar', 'admin-booking', 'admin-payment', 'admin-keluhan', 'admin-chat', 'admin-laporan', 'admin-pengaturan', 'admin-akun', 'admin-akun-tambah',
+          'manager-dashboard', 'manager-kanban', 'manager-keluhan'
+        ];
+        const publicViews = ['login', 'register', 'status']; // Removed 'landing', 'landing-rooms' so users can view them
 
         if (protectedViews.includes(hashView) && !state.currentUser) {
            // Not logged in, redirect to landing
@@ -160,8 +176,7 @@ export default function App() {
               guest: 'landing',
               user: 'user-dashboard',
               admin: 'admin-dashboard',
-              manager: 'manager-dashboard',
-              organizer: 'organizer-dashboard'
+              manager: 'manager-dashboard'
            };
            const view = rolesToView[state.currentUser.role] || 'landing';
            window.history.replaceState({ view }, '', `#${view}`);
@@ -231,8 +246,7 @@ export default function App() {
         guest: 'landing',
         user: 'user-dashboard',
         admin: 'admin-dashboard',
-        manager: 'manager-dashboard',
-        organizer: 'organizer-dashboard'
+        manager: 'manager-dashboard'
       };
       
       const view = rolesToView[userMatch.role as Role] || 'landing';
@@ -328,9 +342,7 @@ export default function App() {
         }}
       />
     );
-    if (state.currentView === 'status-checker') return <StatusChecker />;
     if (state.currentView === 'manager-dashboard') return <ManagerDashboard onNavigate={(v) => dispatch({ type: 'SET_VIEW', payload: v })} />;
-    if (state.currentView === 'organizer-dashboard') return <OrganizerDashboard onNavigate={(v) => dispatch({ type: 'SET_VIEW', payload: v })} />;
     
     if (state.currentView === 'landing' || state.currentView === 'landing-rooms') {
       return (
@@ -338,6 +350,7 @@ export default function App() {
           kamars={state.kamars} 
           activeStrategy={state.activeStrategy} 
           dispatch={dispatch}
+          activeView={state.currentView}
           onBook={(k) => {
             if (!state.currentUser) {
               dispatch({ type: 'SET_VIEW', payload: 'register' });
@@ -374,14 +387,13 @@ export default function App() {
         return <UserDashboard onNavigate={(v) => dispatch({ type: 'SET_VIEW', payload: v })} />;
       case 'manager':
         return <ManagerDashboard onNavigate={(v) => dispatch({ type: 'SET_VIEW', payload: v })} />;
-      case 'organizer':
-        return <OrganizerDashboard onNavigate={(v) => dispatch({ type: 'SET_VIEW', payload: v })} />;
       default:
         return (
           <LandingPage 
             kamars={state.kamars} 
             activeStrategy={state.activeStrategy} 
             dispatch={dispatch}
+            activeView={state.currentView}
             onBook={(k) => {
               if (!state.currentUser) {
                 dispatch({ type: 'SET_VIEW', payload: 'register' });

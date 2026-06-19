@@ -137,9 +137,62 @@ class RoomController extends Controller
         return array_map(function ($room) use ($strategy) {
             $room['displayPrice'] = PricingStrategyManager::calculatePrice(
                 $strategy,
-                $room['price']
+                $room['harga_dasar'] ?? $room['price'] ?? 0
             );
             return $room;
         }, $rooms);
+    }
+
+    /**
+     * POST /api/v1/admin/rooms
+     * Menambah kamar baru
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $request->validate([
+            'nomor' => 'required|string|unique:kamars,nomor',
+            'tipe' => 'required|string',
+            'harga_dasar' => 'required|integer',
+            'status' => 'required|string',
+        ]);
+
+        $kamar = \App\Models\Kamar::create($request->all());
+        $this->kamarRepository->clearCache();
+
+        return response()->json(['success' => true, 'message' => 'Kamar berhasil ditambahkan', 'data' => $kamar]);
+    }
+
+    /**
+     * PUT /api/v1/admin/rooms/{id}
+     * Mengubah data kamar
+     */
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $kamar = \App\Models\Kamar::findOrFail($id);
+
+        $request->validate([
+            'nomor' => 'string|unique:kamars,nomor,' . $kamar->id,
+            'tipe' => 'string',
+            'harga_dasar' => 'integer',
+            'status' => 'string',
+        ]);
+
+        $kamar->update($request->all());
+        $this->kamarRepository->clearCache();
+
+        return response()->json(['success' => true, 'message' => 'Kamar berhasil diupdate', 'data' => $kamar]);
+    }
+
+    /**
+     * DELETE /api/v1/admin/rooms/{id}
+     * Menghapus kamar
+     */
+    public function destroy(int $id): JsonResponse
+    {
+        $kamar = \App\Models\Kamar::findOrFail($id);
+        $kamar->delete();
+        $this->kamarRepository->clearCache();
+
+        return response()->json(['success' => true, 'message' => 'Kamar berhasil dihapus']);
     }
 }

@@ -9,11 +9,12 @@ class SystemConfigManager
 
     private function __construct()
     {
-        // Load default configs
+        // Load default configs sesuai dengan dokumen (Fitur 6)
         $this->configs = [
-            'app_name' => 'Manajemen Kos Pintar',
-            'tax_rate' => 0.11,
-            'max_booking_days' => 30
+            'nama_kos' => 'Manajemen Kos Pintar',
+            'alamat' => 'Jl. Pendidikan No. 123, Kota Pelajar',
+            'nomor_rekening' => 'BCA 123456789 a/n Kos Pintar',
+            'batas_keterlambatan' => 5 // Hari batas keterlambatan pembayaran
         ];
     }
 

@@ -1,36 +1,64 @@
-import { io, Socket } from 'socket.io-client';
 import { ChatMessage } from '../types';
 
 class ChatService {
-  private socket: Socket | null = null;
+  private channel = new BroadcastChannel('nestin_chat');
+  private messageCallbacks: ((msg: ChatMessage) => void)[] = [];
+  private initialMessagesCallbacks: ((msgs: ChatMessage[]) => void)[] = [];
 
-  connect() {
-    if (!this.socket) {
-      this.socket = io(window.location.origin);
-    }
-    return this.socket;
+  constructor() {
+    this.channel.onmessage = (event) => {
+      if (event.data.type === 'new-message') {
+        const msg = event.data.payload;
+        this.saveMessageLocal(msg);
+        this.messageCallbacks.forEach(cb => cb(msg));
+      }
+    };
   }
 
+  private saveMessageLocal(msg: ChatMessage) {
+    const msgs = this.getMessagesLocal();
+    if (!msgs.find(m => m.id === msg.id)) {
+      msgs.push(msg);
+      localStorage.setItem('nestin_chat_messages', JSON.stringify(msgs));
+    }
+  }
+
+  private getMessagesLocal(): ChatMessage[] {
+    try {
+      return JSON.parse(localStorage.getItem('nestin_chat_messages') || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  connect() { return this; }
+
   joinRoom(roomId: string) {
-    this.socket?.emit('join-room', roomId);
+    const msgs = this.getMessagesLocal().filter(m => m.roomId === roomId);
+    this.initialMessagesCallbacks.forEach(cb => cb(msgs));
   }
 
   sendMessage(message: Omit<ChatMessage, 'id' | 'timestamp'>) {
-    this.socket?.emit('send-message', message);
+    const fullMsg: ChatMessage = {
+      ...message,
+      id: `msg-${Date.now()}-${Math.random()}`,
+      timestamp: new Date().toISOString()
+    };
+    
+    this.saveMessageLocal(fullMsg);
+    this.messageCallbacks.forEach(cb => cb(fullMsg));
+    this.channel.postMessage({ type: 'new-message', payload: fullMsg });
   }
 
   onNewMessage(callback: (msg: ChatMessage) => void) {
-    this.socket?.on('new-message', callback);
+    this.messageCallbacks.push(callback);
   }
 
   onInitialMessages(callback: (msgs: ChatMessage[]) => void) {
-    this.socket?.on('initial-messages', callback);
+    this.initialMessagesCallbacks.push(callback);
   }
 
-  disconnect() {
-    this.socket?.disconnect();
-    this.socket = null;
-  }
+  disconnect() {}
 }
 
 export const chatService = new ChatService();

@@ -40,12 +40,6 @@ const ROLE_OPTIONS: { value: Role; label: string; desc: string; color: string }[
     color: 'blue',
   },
   {
-    value: 'organizer',
-    label: 'Organizer',
-    desc: 'Mengatur jadwal & kegiatan',
-    color: 'amber',
-  },
-  {
     value: 'admin',
     label: 'Admin',
     desc: 'Akses penuh ke semua fitur',

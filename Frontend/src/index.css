@@ -15,56 +15,41 @@
   --color-slate-700: #404040;
   --color-slate-800: #262626;
   --color-slate-900: #1A1A1A;
-
-  --color-emerald-50: #F9F9F7;
-  --color-emerald-100: #EAEAEA;
-  --color-emerald-600: #000000;
-  --color-emerald-700: #1A1A1A;
-
-  --radius-none: 0px;
-  --radius-sm: 2px;
-  --radius-md: 4px;
-  --radius-lg: 4px;
-  --radius-xl: 4px;
-  --radius-2xl: 4px;
-  --radius-3xl: 4px;
-  --radius-4xl: 4px;
 }
 
 @layer base {
   body {
     @apply antialiased text-slate-900 bg-slate-50;
   }
-
-  /* Global override for arbitrary rounding used in JSX */
-  *[class*="rounded-["] {
-    border-radius: 4px !important;
-  }
 }
 
 @layer components {
   .btn-primary {
-    @apply px-6 py-3 bg-slate-900 hover:bg-black text-white font-medium rounded-[4px] transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 text-sm;
+    @apply px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold rounded-2xl transition-all duration-300 hover:shadow-[0_8px_20px_-6px_rgba(16,185,129,0.5)] active:scale-95 flex items-center justify-center gap-2 text-sm border border-emerald-400/20 shadow-sm;
   }
   
   .btn-secondary {
-    @apply px-6 py-3 bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 font-medium rounded-[4px] transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 text-sm;
+    @apply px-6 py-3 bg-white/80 hover:bg-slate-50 backdrop-blur-md text-slate-800 border border-slate-200 hover:border-slate-300 hover:shadow-md font-bold rounded-2xl transition-all duration-300 active:scale-95 flex items-center justify-center gap-2 text-sm shadow-sm;
   }
 
   .btn-ghost {
-    @apply px-4 py-2 hover:bg-slate-100 text-slate-500 font-medium rounded-[4px] transition-all duration-200 flex items-center justify-center gap-2 text-sm;
+    @apply px-4 py-2 hover:bg-slate-100 text-slate-600 font-bold rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 text-sm;
+  }
+
+  .glass-panel {
+    @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)];
   }
 
   .card-hover {
-    @apply transition-all duration-300 border border-slate-200 rounded-none hover:border-slate-800;
+    @apply transition-all duration-300 border border-slate-100 rounded-3xl hover:border-emerald-200 hover:shadow-xl hover:-translate-y-1 bg-white;
   }
 
   .label-upper {
-    @apply text-[11px] font-semibold text-slate-500 uppercase tracking-[0.1em];
+    @apply text-[11px] font-bold text-slate-400 uppercase tracking-widest;
   }
 
   .display-text {
-    @apply text-5xl md:text-7xl font-normal leading-[1.05] tracking-[-0.04em] text-slate-900;
+    @apply text-5xl md:text-7xl font-serif leading-[1.05] tracking-tight text-slate-900;
   }
 }
 

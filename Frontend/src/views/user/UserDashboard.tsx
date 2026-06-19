@@ -449,7 +449,16 @@ import { SidebarUserActions } from '../../components/shared/SidebarUserActions';
 
 export const UserDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate }) => {
   const { state, dispatch } = useApp();
-  const [activeTab, setActiveTab] = useState('home');
+  const activeTab = state.currentView.startsWith('user-') && state.currentView !== 'user-dashboard' 
+    ? state.currentView.replace('user-', '') 
+    : 'home';
+
+  const setActiveTab = (tab: string) => {
+    if (tab === 'home') onNavigate('user-dashboard');
+    else if (tab === 'landing-rooms') onNavigate('landing-rooms');
+    else onNavigate(`user-${tab}`);
+  };
+
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptBooking, setReceiptBooking] = useState<Booking | null>(null);
   const [showExtendModal, setShowExtendModal] = useState(false);
@@ -457,6 +466,7 @@ export const UserDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ o
 
   const tabs = [
     { id: 'home', label: 'Beranda', icon: Home },
+    { id: 'landing-rooms', label: 'Cari Kamar', icon: Bed },
     { id: 'bookings', label: 'Booking Saya', icon: ClipboardList },
     { id: 'history', label: 'Riwayat Booking', icon: Clock },
     { id: 'payments', label: 'Riwayat Bayar', icon: CreditCard },
@@ -684,7 +694,7 @@ const UserHome = ({ setActiveTab, onNavigate, onShowReceipt, onExtendRent }: { s
            </div>
            <h3 className="text-xl font-bold">Belum Ada Kamar Aktif</h3>
            <p className="text-slate-500 max-w-xs mx-auto text-sm">Anda belum memiliki pesanan kamar. Yuk cari kamar favorit Anda sekarang!</p>
-           <Button className="px-10" onClick={() => onNavigate('landing')}>Cari Kamar</Button>
+           <Button className="px-10" onClick={() => onNavigate('landing-rooms')}>Cari Kamar</Button>
         </div>
       )}
 
@@ -987,6 +997,9 @@ const UserPayments = ({ onShowReceipt }: { onShowReceipt: (b: Booking) => void }
   const userPayments = state.payments.filter(p => 
     userBookings.some(b => b.id === p.booking_id) && p.status === 'SUCCESS'
   );
+  const userKeluhans = state.keluhans.filter(k => 
+    userBookings.some(b => b.id === k.booking_id) && k.status !== 'RESOLVED'
+  );
 
   return (
     <div className="space-y-8">
@@ -1143,7 +1156,7 @@ const UserKeluhan = () => {
     };
 
     const userBookings = state.bookings.filter(b => b.user_id === state.currentUser?.id && ['DIKONFIRMASI', 'DIHUNI', 'SELESAI'].includes(b.status));
-    const userKeluhans = state.keluhans.filter(k => userBookings.some(b => b.id === k.booking_id));
+    const userKeluhans = state.keluhans.filter(k => userBookings.some(b => b.id === k.booking_id) && k.status !== 'RESOLVED');
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();

@@ -44,6 +44,20 @@ export const SidebarUserActions: React.FC<{ onNavigate: (v: string) => void }> =
     dispatch({ type: 'MARK_NOTIFICATIONS_READ' });
   };
 
+  const handleNotificationClick = (n: any) => {
+    setIsNotifOpen(false);
+    
+    if (user.role === 'admin') {
+      if (n.type === 'PAYMENT_VERIFICATION_REQUEST') onNavigate('admin-pembayaran');
+    } else if (user.role === 'manager') {
+      if (n.type === 'PAYMENT_VERIFICATION_REQUEST') onNavigate('manager-verifikasi');
+      if (n.type === 'NEW_COMPLAINT' || n.type === 'COMPLAINT_RESOLVED') onNavigate('manager-keluhan');
+    } else {
+      if (n.type === 'PAYMENT_CONFIRMED') onNavigate('user-bookings');
+      if (n.type === 'COMPLAINT_RESOLVED') onNavigate('user-keluhan');
+    }
+  };
+
   return (
     <div className="flex items-center justify-center gap-4 bg-white p-4 rounded-[2.5rem] shadow-sm border border-slate-100">
       <div className="relative">
@@ -77,11 +91,11 @@ export const SidebarUserActions: React.FC<{ onNavigate: (v: string) => void }> =
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute top-full left-0 mt-3 w-80 bg-white rounded-[2rem] shadow-2xl border border-slate-100 overflow-hidden z-50"
+              className="absolute top-full left-0 md:-left-2 mt-4 w-80 glass-panel rounded-[2.5rem] overflow-hidden z-[100]"
             >
-              <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+              <div className="p-6 border-b border-white/40 flex items-center justify-between bg-white/40">
                  <h4 className="font-bold text-slate-900">Notifikasi</h4>
-                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-100">{unreadCount} Baru</span>
+                 <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">{unreadCount} Baru</span>
               </div>
 
               <div className="max-h-[50vh] overflow-y-auto">
@@ -97,8 +111,9 @@ export const SidebarUserActions: React.FC<{ onNavigate: (v: string) => void }> =
                      {filteredNotifs.map(n => (
                        <div 
                          key={n.id} 
+                         onClick={() => handleNotificationClick(n)}
                          className={cn(
-                           "p-6 transition-all relative group",
+                           "p-6 transition-all relative group cursor-pointer hover:bg-slate-50",
                            !n.read && "bg-emerald-50/10",
                            n.priority === 'HIGH' && "bg-amber-50/40 border-l-[3px] border-l-amber-500"
                          )}
@@ -130,7 +145,7 @@ export const SidebarUserActions: React.FC<{ onNavigate: (v: string) => void }> =
                                   {n.actions.includes('KONFIRMASI') && (
                                     <Button 
                                       className="h-8 px-3 text-[10px] py-0 rounded-lg bg-emerald-600"
-                                      onClick={() => handleAction(n.id, 'KONFIRMASI')}
+                                      onClick={(e) => { e.stopPropagation(); handleAction(n.id, 'KONFIRMASI'); }}
                                     >
                                       <Check className="w-3 h-3 mr-1" /> Konfirmasi
                                     </Button>
@@ -139,7 +154,7 @@ export const SidebarUserActions: React.FC<{ onNavigate: (v: string) => void }> =
                                     <Button 
                                       variant="secondary"
                                       className="h-8 px-3 text-[10px] py-0 rounded-lg bg-red-50 text-red-600 border-red-100 hover:bg-red-100"
-                                      onClick={() => handleAction(n.id, 'TOLAK')}
+                                      onClick={(e) => { e.stopPropagation(); handleAction(n.id, 'TOLAK'); }}
                                     >
                                       <Trash2 className="w-3 h-3 mr-1" /> Tolak
                                     </Button>
@@ -151,7 +166,7 @@ export const SidebarUserActions: React.FC<{ onNavigate: (v: string) => void }> =
                                 <Button 
                                   variant="ghost" 
                                   className="w-full justify-between h-10 px-4 text-[10px] bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl"
-                                  onClick={() => { onNavigate('user-bookings'); setIsNotifOpen(false); }}
+                                  onClick={(e) => { e.stopPropagation(); onNavigate('user-bookings'); setIsNotifOpen(false); }}
                                 >
                                    Lihat Detail Booking Saya <ChevronRight className="w-3 h-3" />
                                 </Button>
@@ -184,12 +199,12 @@ export const SidebarUserActions: React.FC<{ onNavigate: (v: string) => void }> =
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="absolute top-full left-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 z-50"
+              className="absolute top-full right-0 md:-right-2 mt-4 w-56 glass-panel rounded-3xl p-3 z-[100]"
             >
-              <button onClick={() => { onNavigate(user.role === 'user' ? 'user-profile' : 'admin-settings'); setIsProfileOpen(false); }} className="w-full flex items-center gap-2 p-3 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-xl transition-all">
+              <button onClick={() => { onNavigate(user.role === 'user' ? 'user-profile' : 'admin-settings'); setIsProfileOpen(false); }} className="w-full flex items-center gap-3 p-3 text-sm font-bold text-slate-700 hover:bg-white/60 rounded-xl transition-all">
                 <Settings className="w-4 h-4" /> Pengaturan
               </button>
-              <button onClick={() => { dispatch({ type: 'LOGOUT' }); setIsProfileOpen(false); }} className="w-full flex items-center gap-2 p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-xl transition-all">
+              <button onClick={() => { dispatch({ type: 'LOGOUT' }); setIsProfileOpen(false); }} className="w-full flex items-center gap-3 p-3 text-sm font-bold text-red-600 hover:bg-red-50/80 rounded-xl transition-all">
                 <LogOut className="w-4 h-4" /> Logout
               </button>
             </motion.div>
