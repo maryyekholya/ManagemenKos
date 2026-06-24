@@ -52,7 +52,7 @@ export const useBookingController = (): UseBookingControllerReturn => {
         },
       });
 
-      const kamar = state.kamars.find((k) => k.id === booking.kamar_id);
+      const kamar = state.kamars.find((k) => k.id == booking.kamar_id);
       const kamarNomor = kamar?.nomor || '???';
 
       // 2. Update kamar status

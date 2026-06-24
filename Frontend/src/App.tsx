@@ -7,7 +7,7 @@ import {
   INITIAL_KAMAR, INITIAL_BOOKINGS, INITIAL_KELUHAN, 
   INITIAL_PAYMENTS, INITIAL_NOTIFICATIONS, DEFAULT_CONFIG, DEMO_USERS 
 } from './lib/constants';
-import { BookingPublisher, BookingMachine } from './lib/patterns';
+import { BookingMachine } from './lib/patterns';
 import { Navbar } from './components/shared/Navbar';
 import { PageTransition } from './components/shared/PageTransition';
 import { LandingPage } from './views/guest/LandingPage';
@@ -72,8 +72,10 @@ function appReducer(state: AppState, action: any): AppState {
     case 'UPDATE_KAMAR': return { ...state, kamars: state.kamars.map(k => k.id === action.payload.id ? { ...k, ...action.payload.data } : k) };
     case 'ADD_KAMAR': return { ...state, kamars: [...state.kamars, action.payload] };
     case 'DELETE_KAMAR': return { ...state, kamars: state.kamars.filter(k => k.id !== action.payload) };
+    case 'SET_KAMARS': return { ...state, kamars: action.payload };
     case 'ADD_BOOKING': return { ...state, bookings: [action.payload, ...state.bookings] };
     case 'UPDATE_BOOKING': return { ...state, bookings: state.bookings.map(b => b.id === action.payload.id ? { ...b, ...action.payload.data } : b) };
+    case 'SET_BOOKINGS': return { ...state, bookings: action.payload };
     case 'ADD_PAYMENT': return { ...state, payments: [action.payload, ...state.payments] };
     case 'ADD_KELUHAN': return { ...state, keluhans: [action.payload, ...state.keluhans] };
     case 'UPDATE_KELUHAN': return { ...state, keluhans: state.keluhans.map(k => k.id === action.payload.id ? { ...k, ...action.payload.data } : k) };
@@ -105,18 +107,13 @@ export const useApp = () => {
 
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, {
-    currentUser: (() => {
-       try {
-         const saved = localStorage.getItem('nestin_user');
-         return saved ? JSON.parse(saved) : null;
-       } catch { return null; }
-    })(),
-    users: DEMO_USERS.map(u => ({ id: u.id, name: u.name, email: u.email, password: u.password, isVerified: true, role: u.role as Role })),
-    kamars: INITIAL_KAMAR,
-    bookings: INITIAL_BOOKINGS,
-    keluhans: INITIAL_KELUHAN,
-    payments: INITIAL_PAYMENTS,
-    notifications: INITIAL_NOTIFICATIONS,
+    currentUser: null, // Will be hydrated by useEffect
+    users: [],
+    kamars: [],
+    bookings: [],
+    keluhans: [],
+    payments: [],
+    notifications: [],
     activeStrategy: 'Normal',
     config: DEFAULT_CONFIG,
     currentView: 'landing'
@@ -126,31 +123,48 @@ export default function App() {
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [verifyingEmail, setVerifyingEmail] = useState<string | null>(null);
   const [backVariant, setBackVariant] = useState<'slideLeft' | 'slideRight' | undefined>();
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  // Auth Hydration
+  useEffect(() => {
+    const token = localStorage.getItem('nestin_token');
+    if (!token) {
+      setIsInitializing(false);
+      return;
+    }
+
+    fetch('http://127.0.0.1:8000/api/v1/auth/me', {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success && data.user) {
+        dispatch({ type: 'SET_USER', payload: data.user });
+      } else {
+        localStorage.removeItem('nestin_token');
+      }
+    })
+    .catch(err => {
+      console.error('Failed to hydrate auth:', err);
+      localStorage.removeItem('nestin_token');
+    })
+    .finally(() => {
+      setIsInitializing(false);
+    });
+  }, []);
 
   useEffect(() => {
-    if (state.currentUser) {
-      localStorage.setItem('nestin_user', JSON.stringify(state.currentUser));
+    if (state.currentUser?.token) {
+      localStorage.setItem('nestin_token', state.currentUser.token);
     } else {
-      localStorage.removeItem('nestin_user');
+      localStorage.removeItem('nestin_token');
     }
   }, [state.currentUser]);
 
-  // [OBSERVER] Menginisiasi sistem notifikasi pemesanan untuk memantau event terbaru.
   useEffect(() => {
-    const publisher = BookingPublisher.getInstance();
-    publisher.subscribe((event, data) => {
-      dispatch({
-        type: 'ADD_NOTIFICATION',
-        payload: {
-          id: `N${Date.now()}`,
-          type: event,
-          message: data.message || `Event: ${event}`,
-          read: false,
-          created_at: new Date().toISOString()
-        }
-      });
-    });
-
     // Menangani sinkronisasi URL Hash agar tombol Back pada Browser berfungsi (History API)
     const handlePopState = (e: PopStateEvent) => {
       const hashView = window.location.hash.replace('#', '');
@@ -202,6 +216,72 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [state.currentView]);
 
+  // Fetch rooms from backend on mount and when strategy changes
+  useEffect(() => {
+    fetch(`http://127.0.0.1:8000/api/v1/rooms?pricing_strategy=${state.activeStrategy.toUpperCase()}`, {
+      headers: { 'Accept': 'application/json' }
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success && data.data) {
+        // Map displayPrice from backend to harga_aktif
+        const kamarsWithPricing = data.data.map((r: any) => ({
+          ...r,
+          harga_aktif: r.displayPrice || r.harga_dasar
+        }));
+        dispatch({ type: 'SET_KAMARS', payload: kamarsWithPricing });
+      }
+    })
+    .catch(err => console.error('Failed to fetch rooms:', err));
+  }, [state.activeStrategy]);
+
+  // Fetch user bookings from backend on load/login
+  useEffect(() => {
+    if (state.currentUser?.token) {
+      // Fetch Bookings
+      fetch('http://127.0.0.1:8000/api/v1/bookings', {
+        headers: {
+          'Authorization': `Bearer ${state.currentUser.token}`,
+          'Accept': 'application/json'
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data) {
+          dispatch({ type: 'SET_BOOKINGS', payload: data.data });
+        }
+      })
+      .catch(err => console.error('Failed to fetch user bookings:', err));
+
+      // Fetch Complaints
+      fetch('http://127.0.0.1:8000/api/v1/complaints', {
+        headers: {
+          'Authorization': `Bearer ${state.currentUser.token}`,
+          'Accept': 'application/json'
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data) {
+          // Map to match frontend structure temporarily if needed, but it should be fine.
+          const mappedKeluhans = data.data.map((c: any) => ({
+            id: c.id.toString(),
+            user_name: c.user?.name || 'User',
+            kategori: c.kategori,
+            deskripsi: c.deskripsi,
+            status: c.status,
+            created_at: c.created_at,
+            resolved_at: c.updated_at !== c.created_at ? c.updated_at : null,
+            assigned_to: 'Staff Maintenance',
+            priority: c.kategori === 'FASILITAS' ? 'HIGH' : (c.kategori === 'ADMINISTRASI' ? 'MEDIUM' : 'LOW')
+          }));
+          dispatch({ type: 'SET_KELUHANS', payload: mappedKeluhans });
+        }
+      })
+      .catch(err => console.error('Failed to fetch user complaints:', err));
+    }
+  }, [state.currentUser?.token]);
+
   const handleLogin = async (email: string, pass: string) => {
     try {
       const response = await fetch('http://127.0.0.1:8000/api/v1/auth/login', {
@@ -216,31 +296,7 @@ export default function App() {
         return;
       }
 
-      // Check if user is in our local state first for verification
-      const localUser = state.users.find(u => u.email === email);
-      
-      if (localUser && !localUser.isVerified) {
-        setVerifyingEmail(email);
-        dispatch({ type: 'SET_VIEW', payload: 'verify-email' });
-        return;
-      }
-
-      const userMatch = {
-        id: data.user.id || `USR-${Date.now()}`,
-        name: data.user.name,
-        email: data.user.email,
-        phone: data.user.phone || '',
-        role: data.user.role || (localUser?.role || 'user'),
-        isVerified: localUser?.isVerified ?? true,
-        password: pass
-      };
-
-      // Ensure user is added to state if not exists
-      if (!localUser) {
-        dispatch({ type: 'ADD_USER', payload: userMatch });
-      }
-
-      dispatch({ type: 'SET_USER', payload: userMatch });
+      dispatch({ type: 'SET_USER', payload: data.user });
       
       const rolesToView: Record<Role, string> = {
         guest: 'landing',
@@ -249,7 +305,7 @@ export default function App() {
         manager: 'manager-dashboard'
       };
       
-      const view = rolesToView[userMatch.role as Role] || 'landing';
+      const view = rolesToView[data.user.role as Role] || 'landing';
       dispatch({ type: 'SET_VIEW', payload: view });
       
     } catch (err) {
@@ -272,19 +328,11 @@ export default function App() {
         return;
       }
 
-      const newUser: User = {
-        id: data.data.id || `USR${Date.now()}`,
-        name: data.data.name,
-        email: data.data.email,
-        phone,
-        password: pass,
-        isVerified: false,
-        role: 'user',
-      };
-
-      dispatch({ type: 'ADD_USER', payload: newUser });
-      setVerifyingEmail(email);
+      setVerifyingEmail(data.user.email);
       setRegistrationSuccess(true);
+      
+      // Redirect to email verification page
+      dispatch({ type: 'SET_VIEW', payload: 'verify-email' });
       
     } catch (err) {
       console.error("Gagal register:", err);
@@ -292,10 +340,31 @@ export default function App() {
     }
   };
 
+  const handleGoogleLoginMock = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/v1/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ email: 'theo@gmail.com', name: 'Theo (Google Mock)' })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        alert(data.message || 'Gagal login google mock.');
+        return;
+      }
+      dispatch({ type: 'SET_USER', payload: data.user });
+      dispatch({ type: 'SET_VIEW', payload: 'user-dashboard' });
+    } catch (err) {
+      console.error(err);
+      alert('Koneksi gagal');
+    }
+  };
+
   const renderView = () => {
     if (state.currentView === 'login') return (
       <LoginPage 
         onLogin={handleLogin} 
+        onGoogleLogin={handleGoogleLoginMock}
         onRegisterOpen={() => {
           setBackVariant(undefined);
           dispatch({ type: 'SET_VIEW', payload: 'register' });
@@ -311,10 +380,24 @@ export default function App() {
       return (
         <VerifyEmailPage 
           email={verifyingEmail} 
-          onVerify={() => {
-            dispatch({ type: 'VERIFY_USER', payload: verifyingEmail });
-            setVerifyingEmail(null);
-            dispatch({ type: 'SET_VIEW', payload: 'login' });
+          onVerify={async (otp) => {
+            try {
+              const res = await fetch('http://127.0.0.1:8000/api/v1/auth/verify-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ email: verifyingEmail, otp })
+              });
+              const data = await res.json();
+              if (!res.ok || !data.success) {
+                alert(data.message || 'OTP Salah.');
+                return;
+              }
+              dispatch({ type: 'VERIFY_USER', payload: verifyingEmail });
+              setVerifyingEmail(null);
+              dispatch({ type: 'SET_VIEW', payload: 'login' });
+            } catch (e) {
+               alert('Error verifikasi');
+            }
           }}
           onCancel={() => {
             setVerifyingEmail(null);
@@ -338,22 +421,27 @@ export default function App() {
         registrationSuccess={registrationSuccess}
         onCloseSuccess={() => {
           setRegistrationSuccess(false);
-          dispatch({ type: 'SET_VIEW', payload: 'verify-email' });
+          dispatch({ type: 'SET_VIEW', payload: 'user-dashboard' });
         }}
       />
     );
     if (state.currentView === 'manager-dashboard') return <ManagerDashboard onNavigate={(v) => dispatch({ type: 'SET_VIEW', payload: v })} />;
     
     if (state.currentView === 'landing' || state.currentView === 'landing-rooms') {
+      const hasActiveBooking = state.bookings.some(b => ['DIPESAN', 'MENUNGGU_PEMBAYARAN', 'DIKONFIRMASI', 'DIHUNI'].includes(b.status));
+
       return (
         <LandingPage 
           kamars={state.kamars} 
           activeStrategy={state.activeStrategy} 
           dispatch={dispatch}
           activeView={state.currentView}
+          hasActiveBooking={hasActiveBooking}
           onBook={(k) => {
             if (!state.currentUser) {
               dispatch({ type: 'SET_VIEW', payload: 'register' });
+            } else if (hasActiveBooking) {
+              alert('Anda sudah memiliki pesanan kamar yang aktif. Anda hanya dapat memesan maksimal 1 kamar.');
             } else {
               setBookingTarget(k);
               dispatch({ type: 'SET_VIEW', payload: 'booking-flow' });
@@ -370,9 +458,14 @@ export default function App() {
           strategy={state.activeStrategy}
           onCancel={() => { setBookingTarget(null); dispatch({ type: 'SET_VIEW', payload: 'user-dashboard' }); }}
           onComplete={(booking) => {
-            dispatch({ type: 'ADD_BOOKING', payload: booking });
-            dispatch({ type: 'UPDATE_KAMAR', payload: { id: booking.kamar_id, data: { status: 'DIPESAN' } } });
-            BookingPublisher.getInstance().notify('BOOKING_CREATED', { message: `Pemesanan baru untuk Kamar ${state.kamars.find(k => k.id === booking.kamar_id)?.nomor}` });
+            const existing = state.bookings.find(b => String(b.id) === String(booking.id));
+            if (existing) {
+              dispatch({ type: 'UPDATE_BOOKING', payload: { id: booking.id, data: booking } });
+            } else {
+              dispatch({ type: 'ADD_BOOKING', payload: booking });
+            }
+            dispatch({ type: 'UPDATE_KAMAR', payload: { id: booking.kamar_id, data: { status: booking.status } } });
+            BookingPublisher.getInstance().notify('BOOKING_CREATED', { message: `Pemesanan baru untuk Kamar ${state.kamars.find(k => k.id == booking.kamar_id)?.nomor}` });
             setBookingTarget(null);
             dispatch({ type: 'SET_VIEW', payload: 'user-dashboard' });
           }}
@@ -407,6 +500,17 @@ export default function App() {
     }
   };
 
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin"></div>
+          <p className="text-slate-500 font-medium">Memuat data pengguna...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <AppContext.Provider value={{ state, dispatch }}>
       <Navbar 
@@ -427,7 +531,7 @@ export default function App() {
           }
         }}
       />
-      <main className="min-h-screen">
+      <main className="min-h-screen pt-20">
         <AnimatePresence mode="wait" initial={false}>
           <PageTransition pageKey={state.currentView} variant={backVariant}>
             {renderView()}
@@ -444,9 +548,10 @@ export default function App() {
 
 const LoginPage: React.FC<{ 
   onLogin: (e: string, p: string) => void; 
+  onGoogleLogin: () => void;
   onRegisterOpen: () => void;
   onCancel: () => void 
-}> = ({ onLogin, onRegisterOpen, onCancel }) => {
+}> = ({ onLogin, onGoogleLogin, onRegisterOpen, onCancel }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -459,15 +564,31 @@ const LoginPage: React.FC<{
   const [forgotStep, setForgotStep] = useState<'input' | 'sent'>('input');
   const [forgotLoading, setForgotLoading] = useState(false);
 
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!forgotEmail) return;
     setForgotLoading(true);
-    // Simulasi delay pengiriman email
-    setTimeout(() => {
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/v1/auth/forgot-password', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+         body: JSON.stringify({ email: forgotEmail })
+      });
+      const data = await res.json();
       setForgotLoading(false);
-      setForgotStep('sent');
-    }, 1200);
+      if (data.success) {
+         if (data.local_otp) {
+            console.log("MOCK OTP DITERIMA:", data.local_otp);
+            alert("MOCK OTP DITERIMA: " + data.local_otp); // Untuk kemudahan traceback lokal
+         }
+         setForgotStep('sent');
+      } else {
+         alert(data.message || 'Terjadi kesalahan.');
+      }
+    } catch(err) {
+      setForgotLoading(false);
+      alert('Koneksi error');
+    }
   };
 
   const handleForgotClose = () => {
@@ -497,15 +618,9 @@ const LoginPage: React.FC<{
     }, 400);
   };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLoginClick = () => {
     setIsLoading(true);
-    // Simulasi integrasi Google OAuth
-    setTimeout(() => {
-      setIsLoading(false);
-      // Dalam implementasi nyata, ini akan redirect ke /api/auth/google
-      // Untuk simulasi, kita langsung panggil onLogin dengan akun khusus atau alert
-      alert('Simulasi: Redirect ke halaman Login Google...');
-    }, 500);
+    onGoogleLogin();
   };
 
   return (
@@ -625,7 +740,7 @@ const LoginPage: React.FC<{
             <Button
               variant="secondary"
               className="w-full py-4 text-lg flex items-center justify-center gap-3 transition-all"
-              onClick={handleGoogleLogin}
+              onClick={handleGoogleLoginClick}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -665,7 +780,35 @@ const ForgotPasswordModal: React.FC<{
   onEmailChange: (v: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   onClose: () => void;
-}> = ({ isOpen, step, email, loading, onEmailChange, onSubmit, onClose }) => (
+}> = ({ isOpen, step, email, loading, onEmailChange, onSubmit, onClose }) => {
+  const [otp, setOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+
+  const handleReset = async () => {
+      if(!otp || !newPassword) return;
+      setResetLoading(true);
+      try {
+         const res = await fetch('http://127.0.0.1:8000/api/v1/auth/reset-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ email, token: otp, password: newPassword })
+         });
+         const data = await res.json();
+         if(res.ok && data.success) {
+            alert('Password berhasil direset. Silakan login dengan password baru.');
+            onClose();
+         } else {
+            alert(data.message || 'Token tidak valid.');
+         }
+      } catch (err) {
+         alert('Error koneksi.');
+      } finally {
+         setResetLoading(false);
+      }
+  };
+
+  return (
   <Modal isOpen={isOpen} onClose={onClose} title="" size="sm">
     <div className="p-2">
       {step === 'input' ? (
@@ -703,26 +846,30 @@ const ForgotPasswordModal: React.FC<{
           </div>
         </form>
       ) : (
-        <div className="text-center space-y-6 py-4">
+        <div className="text-center space-y-4 py-4">
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
             <Mail className="w-8 h-8" />
           </div>
           <div className="space-y-2">
-            <h3 className="text-lg font-bold text-slate-900">Link Reset Terkirim!</h3>
+            <h3 className="text-lg font-bold text-slate-900">Masukkan OTP & Password Baru</h3>
             <p className="text-sm text-slate-500">
               Kami telah mengirim link reset password ke{' '}
               <span className="font-bold text-slate-700">{email}</span>.
             </p>
-            <p className="text-xs text-slate-400">Silakan cek folder inbox atau spam Anda.</p>
           </div>
-          <Button className="w-full" onClick={onClose}>
-            Kembali ke Login
+          <div className="space-y-3 text-left">
+             <input type="text" placeholder="Masukkan 6-Digit OTP" value={otp} onChange={(e) => setOtp(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium outline-none" />
+             <input type="password" placeholder="Password Baru Minimal 8 Karakter" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium outline-none" />
+          </div>
+          <Button isLoading={resetLoading} className="w-full" onClick={handleReset}>
+            Reset Password
           </Button>
         </div>
       )}
     </div>
   </Modal>
-);
+  );
+};
 
 // Render modal Lupa Password di bawah komponen LoginPage tidak bisa karena tidak ada return statement terpisah.
 // Modal dirender inline di dalam return LoginPage.
@@ -732,7 +879,9 @@ const ForgotPasswordModal: React.FC<{
 // REGISTER PAGE COMPONENT
 // ═══════════════════════════════
 
-const VerifyEmailPage: React.FC<{ email: string; onVerify: () => void; onCancel: () => void }> = ({ email, onVerify, onCancel }) => {
+const VerifyEmailPage: React.FC<{ email: string; onVerify: (otp: string) => void; onCancel: () => void }> = ({ email, onVerify, onCancel }) => {
+  const [otp, setOtp] = useState('123456');
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
       <motion.div 
@@ -750,12 +899,13 @@ const VerifyEmailPage: React.FC<{ email: string; onVerify: () => void; onCancel:
              <span className="font-bold text-slate-900">{email}</span>
            </p>
            <p className="text-sm text-slate-400">
-             Silakan klik tombol di bawah ini untuk mensimulasikan proses verifikasi email dan melanjutkan ke halaman login.
+             (Untuk local traceback, OTP default adalah 123456)
            </p>
+           <input type="text" value={otp} onChange={e => setOtp(e.target.value)} className="w-full text-center tracking-[0.5em] text-xl font-mono px-4 py-3 border border-slate-200 rounded-xl outline-none" />
         </div>
         
         <div className="space-y-4">
-           <Button className="w-full py-4 text-lg" onClick={onVerify}>Verifikasi Sekarang</Button>
+           <Button className="w-full py-4 text-lg" onClick={() => onVerify(otp)}>Verifikasi Sekarang</Button>
            <button onClick={onCancel} className="text-sm text-slate-400 font-bold hover:text-slate-600 transition-colors">
               Batal
            </button>

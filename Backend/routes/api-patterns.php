@@ -27,11 +27,21 @@ Route::group(['prefix' => 'v1', 'as' => 'api.v1.'], function () {
     Route::post('/auth/login', [ApiAuthController::class, 'login'])->name('auth.login');
     Route::post('/auth/register', [ApiAuthController::class, 'register'])->name('auth.register');
     Route::post('/auth/google', [ApiAuthController::class, 'googleLogin'])->name('auth.google');
+    Route::post('/auth/forgot-password', [ApiAuthController::class, 'forgotPassword'])->name('auth.forgot-password');
+    Route::post('/auth/reset-password', [ApiAuthController::class, 'resetPassword'])->name('auth.reset-password');
+    Route::post('/auth/verify-email', [ApiAuthController::class, 'verifyEmail'])->name('auth.verify-email');
 
     // --- Protected Routes ---
     Route::middleware('auth:sanctum')->group(function () {
         
+        // --- Auth User ---
+        Route::get('/auth/me', [ApiAuthController::class, 'me'])->name('auth.me');
+        Route::post('/auth/logout', [ApiAuthController::class, 'logout'])->name('auth.logout');
+        Route::post('/auth/profile', [ApiAuthController::class, 'updateProfile'])->name('auth.profile.update');
+
+        
         // --- State, Observer & Singleton (Booking) - General Users ---
+        Route::get('/bookings', [BookingController::class, 'getUserBookings'])->name('bookings.index');
         Route::post('/bookings', [BookingController::class, 'createBooking'])->name('bookings.store');
         Route::put('/bookings/{id}/proceed', [BookingController::class, 'proceedBooking'])->name('bookings.proceed');
         Route::put('/bookings/{id}/pay', [BookingController::class, 'payBooking'])->name('bookings.pay');
@@ -50,8 +60,11 @@ Route::group(['prefix' => 'v1', 'as' => 'api.v1.'], function () {
             // Admin Booking
             Route::put('/admin/bookings/{id}/approve', [BookingController::class, 'approveBooking'])->name('admin.bookings.approve');
             Route::put('/admin/bookings/{id}/reject', [BookingController::class, 'rejectBooking'])->name('admin.bookings.reject');
+            Route::put('/admin/rooms/{id}/evict', [BookingController::class, 'evictByRoom'])->name('admin.rooms.evict');
+            Route::get('/admin/bookings', [DashboardController::class, 'getAllBookings'])->name('admin.bookings.index');
 
             // Admin Rooms (Manajemen Kamar)
+            Route::post('/admin/rooms/upload-image', [RoomController::class, 'uploadImage'])->name('admin.rooms.upload');
             Route::post('/admin/rooms', [RoomController::class, 'store'])->name('admin.rooms.store');
             Route::put('/admin/rooms/{id}', [RoomController::class, 'update'])->name('admin.rooms.update');
             Route::delete('/admin/rooms/{id}', [RoomController::class, 'destroy'])->name('admin.rooms.destroy');

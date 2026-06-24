@@ -30,7 +30,12 @@ export const AdminAkun: React.FC<AdminAkunProps> = ({ onNavigateToCreate }) => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/v1/admin/users');
+      const response = await fetch('http://127.0.0.1:8000/api/v1/admin/users', {
+        headers: {
+          'Authorization': `Bearer ${state.currentUser?.token}`,
+          'Accept': 'application/json'
+        }
+      });
       const json = await response.json();
       if (json.success) {
         setUsers(json.data);

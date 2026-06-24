@@ -29,7 +29,7 @@ export const AdminBooking: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
 
   const filteredBookings = bookings.filter(b => {
-    const kamar = state.kamars.find(k => k.id === b.kamar_id);
+    const kamar = state.kamars.find(k => k.id == b.kamar_id);
     const matchesSearch = b.user_name.toLowerCase().includes(search.toLowerCase()) || 
                           b.id.toLowerCase().includes(search.toLowerCase()) || 
                           kamar?.nomor.toLowerCase().includes(search.toLowerCase());
@@ -114,7 +114,7 @@ export const AdminBooking: React.FC = () => {
           </thead>
           <tbody className="divide-y divide-slate-50">
             {filteredBookings.map(b => {
-              const kamar = state.kamars.find(k => k.id === b.kamar_id);
+              const kamar = state.kamars.find(k => k.id == b.kamar_id);
               return (
                 <tr key={b.id} className="hover:bg-slate-50/60 transition-colors">
                   <td className="px-6 py-4 font-mono text-xs text-slate-400">{b.id}</td>
@@ -271,7 +271,7 @@ export const AdminBooking: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
               {[
                 { label: 'Booking ID', value: selectedBooking.id },
-                { label: 'Kamar', value: `Kamar ${state.kamars.find(k => k.id === selectedBooking.kamar_id)?.nomor}` },
+                { label: 'Kamar', value: `Kamar ${state.kamars.find(k => k.id == selectedBooking.kamar_id)?.nomor}` },
                 { label: 'Tgl Masuk', value: selectedBooking.tgl_masuk },
                 { label: 'Tgl Keluar', value: selectedBooking.tgl_keluar },
                 { label: 'Durasi', value: `${selectedBooking.durasi_bulan} Bulan` },

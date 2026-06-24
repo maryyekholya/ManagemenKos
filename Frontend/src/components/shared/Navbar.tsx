@@ -63,8 +63,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, activeView, onNa
 
   const navItems = navItemsByRole[user?.role || 'guest'];
 
-  if (user && user.role !== 'guest') return null;
-
   return (
     <nav className="fixed top-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-md border-bottom border-slate-100 h-20 flex items-center px-6 md:px-12">
       <div className="flex items-center gap-2 cursor-pointer" onClick={() => onNavigate('landing')}>
@@ -223,8 +221,12 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, activeView, onNa
                 className="flex items-center gap-2 p-1 pl-3 bg-slate-50 border border-slate-200 rounded-full hover:shadow-sm transition-all"
               >
                 <span className="text-xs font-bold text-slate-700">{user.name.split(' ')[0]}</span>
-                <div className="w-8 h-8 bg-emerald-100 text-emerald-700 flex items-center justify-center rounded-full font-bold text-sm">
-                  {user.name.charAt(0)}
+                <div className="w-8 h-8 bg-emerald-100 text-emerald-700 flex items-center justify-center rounded-full font-bold text-sm overflow-hidden">
+                  {user.avatar ? (
+                    <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    user.name.charAt(0)
+                  )}
                 </div>
               </button>
 

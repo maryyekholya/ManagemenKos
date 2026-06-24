@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../App';
 import { Booking, Kamar, Keluhan, RoomStatus, Payment } from '../../types';
-import { BookingMachine, ComplaintStrategy } from '../../lib/patterns';
+import { BookingMachine } from '../../lib/patterns';
 import { formatRupiah, cn } from '../../lib/utils';
 import { StatusBadge, Button, Modal } from '../../components/shared/UI';
 import { motion, AnimatePresence } from 'motion/react';
@@ -130,6 +130,11 @@ const FinancialHistory = () => {
 
    let successPayments = allPayments.filter(p => p.status === 'SUCCESS');
 
+   const [filterMonth, setFilterMonth] = useState<string>('all');
+   const [filterYear, setFilterYear] = useState<string>('all');
+   const [filterType, setFilterType] = useState<string>('all');
+   const [filterRoom, setFilterRoom] = useState<string>('all');
+
    if (search) {
        const lowerSearch = search.toLowerCase();
        successPayments = successPayments.filter(p => {
@@ -139,6 +144,23 @@ const FinancialHistory = () => {
                   p.metode.toLowerCase().includes(lowerSearch);
        });
    }
+
+   // Terapkan Filter Pembayaran
+   successPayments = successPayments.filter(p => {
+       const date = new Date(p.tanggal);
+       const pMonth = (date.getMonth() + 1).toString();
+       const pYear = date.getFullYear().toString();
+       const booking = allBookings.find(b => b.id === p.booking_id);
+       const kamar = state.kamars.find(k => k.id === booking?.kamar_id);
+
+       let match = true;
+       if (filterMonth !== 'all' && pMonth !== filterMonth) match = false;
+       if (filterYear !== 'all' && pYear !== filterYear) match = false;
+       if (filterType !== 'all' && kamar?.tipe !== filterType) match = false;
+       if (filterRoom !== 'all' && kamar?.id !== filterRoom) match = false;
+
+       return match;
+   });
 
    successPayments.sort((a, b) => {
        if (sortBy === 'date_desc') return new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime();
@@ -196,17 +218,50 @@ const FinancialHistory = () => {
             </Button>
          </div>
 
-         <div className="flex gap-4">
+         <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
                 <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input 
                     type="text" 
-                    placeholder="Cari ID transaksi, nama tenant, atau metode bayar..."
+                    placeholder="Cari transaksi..."
                     className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                 />
             </div>
+            
+            {/* Filter Bulan */}
+            <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="bg-white border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-emerald-500">
+               <option value="all">Bulan: Semua</option>
+               {Array.from({length: 12}).map((_, i) => (
+                  <option key={i+1} value={String(i+1)}>Bulan: {i+1}</option>
+               ))}
+            </select>
+
+            {/* Filter Tahun */}
+            <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="bg-white border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-emerald-500">
+               <option value="all">Tahun: Semua</option>
+               <option value="2024">2024</option>
+               <option value="2025">2025</option>
+               <option value="2026">2026</option>
+            </select>
+
+            {/* Filter Tipe Kamar */}
+            <select value={filterType} onChange={e => setFilterType(e.target.value)} className="bg-white border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-emerald-500">
+               <option value="all">Tipe: Semua</option>
+               {Array.from(new Set(state.kamars.map(k => k.tipe))).map(tipe => (
+                  <option key={tipe} value={tipe}>{tipe}</option>
+               ))}
+            </select>
+
+            {/* Filter Kamar Spesifik */}
+            <select value={filterRoom} onChange={e => setFilterRoom(e.target.value)} className="bg-white border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-emerald-500">
+               <option value="all">Kamar: Semua</option>
+               {state.kamars.map(k => (
+                  <option key={k.id} value={k.id}>Kamar {k.nomor}</option>
+               ))}
+            </select>
+
             <select 
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
@@ -214,8 +269,8 @@ const FinancialHistory = () => {
             >
                 <option value="date_desc">Terbaru</option>
                 <option value="date_asc">Terlama</option>
-                <option value="amount_desc">Nominal Tertinggi</option>
-                <option value="amount_asc">Nominal Terendah</option>
+                <option value="amount_desc">Tertinggi</option>
+                <option value="amount_asc">Terendah</option>
             </select>
          </div>
 
@@ -258,7 +313,7 @@ const FinancialHistory = () => {
                <tbody className="divide-y divide-slate-50">
                   {successPayments.map(p => {
                      const booking = allBookings.find(b => b.id === p.booking_id);
-                     const kamar = state.kamars.find(k => k.id === booking?.kamar_id);
+                     const kamar = state.kamars.find(k => k.id == booking?.kamar_id);
                      return (
                         <tr key={p.id} className="hover:bg-slate-50/50 transition-all">
                            <td className="px-8 py-6">
@@ -761,42 +816,63 @@ const Download_old = ({ className }: { className?: string }) => <svg xmlns="http
 
 const PaymentVerification = () => {
     const { state, dispatch } = useApp();
+    const [apiBookings, setApiBookings] = useState<Booking[]>([]);
     
-    // Cari booking dengan status MENUNGGU_PEMBAYARAN yang memiliki paymentClaimTimestamp (bukti upload/klaim)
-    const pendingVerifications = state.bookings.filter(b => b.status === 'MENUNGGU_PEMBAYARAN' && b.paymentClaimTimestamp);
+    const fetchBookings = useCallback(async () => {
+        try {
+            const res = await fetch('http://127.0.0.1:8000/api/v1/admin/bookings');
+            const json = await res.json();
+            if (json.success) setApiBookings(json.data);
+        } catch (error) {
+            console.error(error);
+        }
+    }, []);
 
-    const handleVerify = (booking: Booking, isValid: boolean) => {
+    useEffect(() => {
+        fetchBookings();
+    }, [fetchBookings]);
+
+    // Cari booking CASH yang DIKONFIRMASI, ATAU metode lain yang diunggah bukti tapi masih MENUNGGU_PEMBAYARAN
+    const allBookings = apiBookings.length > 0 ? apiBookings : state.bookings;
+    const pendingVerifications = allBookings.filter(b => 
+        (b.status === 'DIKONFIRMASI' && b.metode_bayar === 'CASH') ||
+        (b.status === 'MENUNGGU_PEMBAYARAN' && b.paymentClaimTimestamp)
+    );
+
+    const handleVerify = async (booking: Booking, isValid: boolean) => {
         if (isValid) {
-            // Update booking to DIHUNI
-            dispatch({
-                type: 'UPDATE_BOOKING',
-                payload: { id: booking.id, data: { status: 'DIHUNI' } }
-            });
-            // Update Kamar to DIHUNI
-            dispatch({
-                type: 'UPDATE_KAMAR',
-                payload: { id: booking.kamar_id, data: { status: 'DIHUNI' } }
-            });
-            // Record payment
-            dispatch({
-                type: 'ADD_PAYMENT',
-                payload: {
-                    id: `PAY-${Date.now()}`,
-                    booking_id: booking.id,
-                    jumlah: booking.total,
-                    tanggal: new Date().toISOString().split('T')[0],
-                    metode: booking.metode_bayar,
-                    status: 'SUCCESS'
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/api/v1/admin/bookings/${booking.id}/approve`, {
+                    method: 'PUT',
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Pembayaran divalidasi dan kamar resmi dihuni!');
+                    fetchBookings();
+                } else {
+                    alert(data.message || 'Gagal memvalidasi.');
                 }
-            });
-            alert('Pembayaran divalidasi!');
+            } catch {
+                alert('Error koneksi.');
+            }
         } else {
-            // Update booking to MENUNGGU_PEMBAYARAN (remove claim) and optionally add rejection note
-            dispatch({
-                type: 'UPDATE_BOOKING',
-                payload: { id: booking.id, data: { paymentClaimTimestamp: undefined, rejectionNote: 'Bukti pembayaran tidak valid/nominal kurang' } }
-            });
-            alert('Pembayaran ditolak!');
+            // For reject, maybe call reject endpoint if it exists
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/api/v1/admin/bookings/${booking.id}/reject`, {
+                    method: 'PUT',
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Pembayaran ditolak!');
+                    fetchBookings();
+                } else {
+                    alert(data.message || 'Gagal menolak.');
+                }
+            } catch {
+                alert('Error koneksi.');
+            }
         }
     };
 
@@ -809,7 +885,7 @@ const PaymentVerification = () => {
 
             <div className="space-y-6">
                 {pendingVerifications.map(b => {
-                    const kamar = state.kamars.find(k => k.id === b.kamar_id);
+                    const kamar = state.kamars.find(k => k.id == b.kamar_id);
                     return (
                         <div key={b.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
                             <div className="flex gap-6 items-center">

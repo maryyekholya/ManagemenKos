@@ -44,6 +44,18 @@ class BookingController extends Controller
         $kamar = Kamar::findOrFail($request->kamar_id);
         $user = Auth::user();
 
+        // 1. Cek aturan: 1 user hanya boleh punya 1 kamar aktif
+        $activeBooking = Booking::where('user_id', $user->id)
+            ->whereIn('status', ['DIPESAN', 'MENUNGGU_PEMBAYARAN', 'DIKONFIRMASI', 'DIHUNI'])
+            ->first();
+
+        if ($activeBooking) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda sudah memiliki pesanan kamar yang aktif. Anda hanya dapat memesan maksimal 1 kamar.'
+            ], 400);
+        }
+
         // 1. Buat record Booking baru
         $booking = new Booking();
         $booking->user_id = $user->id;
@@ -107,7 +119,7 @@ class BookingController extends Controller
     public function payBooking(Request $request, string $id): JsonResponse
     {
         $request->validate([
-            'metode_pembayaran' => 'required|in:TRANSFER,DOMPET_DIGITAL,QRIS'
+            'metode_pembayaran' => 'required|in:TRANSFER,DOMPET_DIGITAL,QRIS,CASH'
         ]);
 
         $booking = Booking::findOrFail($id);
@@ -122,6 +134,7 @@ class BookingController extends Controller
                 'TRANSFER' => new TransferBankStrategy(),
                 'DOMPET_DIGITAL' => new DompetDigitalStrategy(),
                 'QRIS' => new QRISStrategy(),
+                'CASH' => new \App\Services\Patterns\Strategy\CashStrategy(),
             };
 
             $paymentResult = $strategy->pay($booking->total, $booking->toArray());
@@ -129,15 +142,37 @@ class BookingController extends Controller
             // 3. Simpan State dan Informasi Pembayaran
             $booking->status = $context->getStatus();
             $booking->metode_bayar = $request->metode_pembayaran;
-            $booking->catatan = 'Menunggu verifikasi admin.';
+            $booking->catatan = $request->metode_pembayaran === 'CASH' 
+                ? 'Menunggu verifikasi pembayaran tunai dari Manager.' 
+                : 'Otomatis disetujui sistem.';
             $booking->save();
 
             TransactionHistoryManager::getInstance()->recordTransaction($id, $booking->total, $booking->status);
             $this->notifier->notify("Pembayaran untuk Booking #{$booking->id} telah diterima.");
 
+            // 4. OTOMATIS TERIMA (APPROVE) KAMAR JIKA BUKAN CASH
+            if ($request->metode_pembayaran !== 'CASH') {
+                $context = $booking->getStateContext();
+                $context->approve(); // Transisi DIKONFIRMASI -> DIHUNI
+
+                $booking->status = $context->getStatus();
+                $booking->tgl_masuk = now();
+                $booking->tgl_keluar = now()->addMonths($booking->durasi_bulan);
+                $booking->save();
+
+                // Ubah status kamar di master data
+                $kamar = Kamar::findOrFail($booking->kamar_id);
+                $kamar->status = 'Dihuni';
+                $kamar->save();
+
+                $this->notifier->notify("Booking #{$booking->id} disetujui. Selamat datang!");
+            } else {
+                $this->notifier->notify("Booking #{$booking->id} menunggu verifikasi tunai.");
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'Pembayaran berhasil diinisiasi.',
+                'message' => 'Pembayaran berhasil dan kamar langsung dihuni.',
                 'data' => $booking,
                 'payment_info' => $paymentResult
             ]);
@@ -208,6 +243,45 @@ class BookingController extends Controller
     }
 
     /**
+     * EVICT/KOSONGKAN Kamar oleh Admin berdasarkan Kamar ID
+     */
+    public function evictByRoom(string $kamarId): JsonResponse
+    {
+        // Cari booking aktif untuk kamar ini
+        $booking = Booking::where('kamar_id', $kamarId)
+            ->where('status', 'DIHUNI')
+            ->first();
+
+        if (!$booking) {
+            return response()->json(['success' => false, 'message' => 'Tidak ada tenant aktif di kamar ini.'], 404);
+        }
+
+        try {
+            $context = $booking->getStateContext();
+            $context->checkOut();
+
+            $booking->status = $context->getStatus();
+            $booking->tgl_keluar = now(); // Catat waktu keluar riil
+            $booking->save();
+
+            // Ubah status kamar di master data kembali tersedia
+            $kamar = Kamar::findOrFail($booking->kamar_id);
+            $kamar->status = 'TERSEDIA'; // Pastikan uppercase sesuai model
+            $kamar->save();
+
+            $this->notifier->notify("Booking #{$booking->id} telah diakhiri oleh Admin.");
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tenant berhasil dikeluarkan dan kamar tersedia kembali.',
+                'data' => $booking
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
      * CHECKOUT Booking (State: DIHUNI -> TERSEDIA)
      */
     public function checkOutBooking(string $id): JsonResponse
@@ -223,7 +297,7 @@ class BookingController extends Controller
 
             // Ubah status kamar di master data kembali tersedia
             $kamar = Kamar::findOrFail($booking->kamar_id);
-            $kamar->status = 'Tersedia';
+            $kamar->status = 'TERSEDIA'; // Pastikan uppercase
             $kamar->save();
 
             $this->notifier->notify("Booking #{$booking->id} telah selesai. Terima kasih!");
@@ -236,5 +310,18 @@ class BookingController extends Controller
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
         }
+    }
+
+    /**
+     * GET User Bookings
+     */
+    public function getUserBookings(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $bookings = Booking::where('user_id', $user->id)->orderBy('created_at', 'desc')->get();
+        return response()->json([
+            'success' => true,
+            'data' => $bookings
+        ]);
     }
 }

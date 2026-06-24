@@ -33,14 +33,22 @@ import { motion } from 'motion/react';
 // OVERVIEW
 // ──────────────────────────────────────
 
-const Overview: React.FC<{ stats: ReturnType<typeof calculateStats> }> = ({ stats }) => {
+const Overview: React.FC<{ stats: ReturnType<typeof calculateStats>, onNavigate: (v: string) => void }> = ({ stats, onNavigate }) => {
+  const { state } = useApp();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!state.currentUser?.token) return;
+
     const fetchDashboard = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/v1/admin/dashboard');
+        const response = await fetch('http://127.0.0.1:8000/api/v1/admin/dashboard', {
+          headers: {
+            'Authorization': `Bearer ${state.currentUser.token}`,
+            'Accept': 'application/json'
+          }
+        });
         const json = await response.json();
         if (json.success) {
           setData(json.data);
@@ -52,7 +60,7 @@ const Overview: React.FC<{ stats: ReturnType<typeof calculateStats> }> = ({ stat
       }
     };
     fetchDashboard();
-  }, []);
+  }, [state.currentUser?.token]);
 
   const displayStats = data ? {
     total: data.stats.total_kamar,
@@ -61,7 +69,7 @@ const Overview: React.FC<{ stats: ReturnType<typeof calculateStats> }> = ({ stat
     complaints: data.stats.open_complaints,
   } : stats;
 
-  const recentBookings = data ? data.recent_bookings : [1, 2, 3].map((i) => ({
+  const recentBookings = data ? data.recent_bookings : [1, 2, 3].map((i: number) => ({
     id: i,
     user: { name: `Tenant Name ${i}` },
     kamar: { nomor: `10${i}` }
@@ -133,11 +141,11 @@ const Overview: React.FC<{ stats: ReturnType<typeof calculateStats> }> = ({ stat
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-bold text-xs text-slate-500 shadow-sm">BK</div>
                       <div>
-                        <p className="text-sm font-bold">{b.user?.name || `Tenant Name ${i + 1}`}</p>
+                        <p className="text-sm font-bold">{b.user_name || b.user?.name || `Tenant Name ${i + 1}`}</p>
                         <p className="text-[10px] text-slate-400 font-bold uppercase">Kamar {b.kamar?.nomor || `10${i + 1}`}</p>
                       </div>
                     </div>
-                    <Button className="py-2 text-xs">Detail</Button>
+                    <Button className="py-2 text-xs" onClick={() => onNavigate('booking')}>Detail</Button>
                   </div>
                 ))}
               </div>
@@ -543,7 +551,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ 
       case 'laporan':    return <AdminLaporan />;
       case 'pengaturan': return <AdminSettings />;
       case 'overview':
-      default:           return <Overview stats={calculateStats(state)} />;
+      default:           return <Overview stats={calculateStats(state)} onNavigate={(v) => setActiveTab(v)} />;
     }
   };
 

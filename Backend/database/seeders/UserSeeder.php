@@ -15,42 +15,33 @@ class UserSeeder extends Seeder
     {
         $users = [
             [
-                'name'     => 'Admin NestIn',
-                'email'    => 'admin@nestin.id',
-                'password' => Hash::make('admin123'),
-                'role'     => 'admin',
-                'phone'    => '081200000001',
+                'name' => 'Admin Utama',
+                'email' => 'admin@admin.com',
+                'password' => Hash::make('password123'),
+                'role' => 'admin',
+                'phone' => '081234567890',
+                'address' => 'Jl. Admin No. 1',
+                'email_verified_at' => now(),
             ],
             [
-                'name'     => 'Budi Santoso',
-                'email'    => 'user@nestin.id',
-                'password' => Hash::make('user123'),
-                'role'     => 'user',
-                'phone'    => '081200000002',
+                'name' => 'Manager Operasional',
+                'email' => 'manager@manager.com',
+                'password' => Hash::make('password123'),
+                'role' => 'manager',
+                'phone' => '081234567891',
+                'address' => 'Jl. Manager No. 2',
+                'email_verified_at' => now(),
             ],
             [
-                'name'     => 'Manager Kos',
-                'email'    => 'manager@nestin.id',
-                'password' => Hash::make('manager123'),
-                'role'     => 'manager',
-                'phone'    => '081200000003',
-            ],
-            [
-                'name'     => 'Andi Organizer',
-                'email'    => 'organizer@nestin.id',
-                'password' => Hash::make('organizer123'),
-                'role'     => 'organizer',
-                'phone'    => '081200000004',
-            ],
-            [
-                'name'     => 'Siti Aminah',
-                'email'    => 'newuser@nestin.id',
-                'password' => Hash::make('user123'),
-                'role'     => 'user',
-                'phone'    => '081200000005',
-            ],
+                'name' => 'User Reguler',
+                'email' => 'user@user.com',
+                'password' => Hash::make('password123'),
+                'role' => 'user',
+                'phone' => '081234567892',
+                'address' => 'Jl. User No. 3',
+                'email_verified_at' => now(),
+            ]
         ];
-
         foreach ($users as $data) {
             User::firstOrCreate(['email' => $data['email']], $data);
         }

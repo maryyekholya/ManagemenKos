@@ -24,7 +24,7 @@ export const StatusChecker: React.FC = () => {
         }, 800);
     };
 
-    const foundKamar = foundBooking ? state.kamars.find(k => k.id === foundBooking.kamar_id) : null;
+    const foundKamar = foundBooking ? state.kamars.find(k => k.id == foundBooking.kamar_id) : null;
 
     return (
         <div className="pt-32 pb-20 bg-slate-50 min-h-screen">

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Home, Bed, ClipboardList, CreditCard, FileText, Settings, 
-  User as UserIcon, Phone, MapPin, CheckCircle2, AlertCircle, Clock, Plus, ShieldCheck
+  User as UserIcon, Phone, MapPin, CheckCircle2, AlertCircle, Clock, Plus, ShieldCheck, Camera
 } from 'lucide-react';
 import { useApp } from '../../App';
 import { Booking, Keluhan, RoomStatus, Payment, Kamar, ComplaintPriority } from '../../types';
@@ -95,7 +95,7 @@ const PaymentReminder: React.FC<{ booking: Booking, onPay: () => void }> = ({ bo
           <div className="space-y-1">
              <h4 className="font-bold text-amber-900">Selesaikan Pembayaran!</h4>
              <p className="text-xs text-amber-700 leading-relaxed max-w-md">
-                Pesanan Kamar {state.kamars.find(k => k.id === booking.kamar_id)?.nomor} Anda akan hangus jika tidak segera dibayar. 
+                Pesanan Kamar {state.kamars.find(k => k.id == booking.kamar_id)?.nomor} Anda akan hangus jika tidak segera dibayar. 
                 Sisa waktu: <span className="font-bold underline decoration-2">{timeLeft}</span>
              </p>
           </div>
@@ -110,7 +110,7 @@ const PaymentReminder: React.FC<{ booking: Booking, onPay: () => void }> = ({ bo
 const PaymentReceipt: React.FC<{ isOpen: boolean, onClose: () => void, booking: Booking }> = ({ isOpen, onClose, booking }) => {
   const { state } = useApp();
   const [isGenerating, setIsGenerating] = useState(false);
-  const kamar = state.kamars.find(k => k.id === booking.kamar_id);
+  const kamar = state.kamars.find(k => k.id == booking.kamar_id);
   const payments = state.payments.filter(p => p.booking_id === booking.id && p.status === 'SUCCESS');
   const user = state.users.find(u => u.id === booking.user_id) || state.currentUser;
   const config = state.config;
@@ -356,7 +356,7 @@ const PaymentReceipt: React.FC<{ isOpen: boolean, onClose: () => void, booking: 
 const PaymentDetailModal: React.FC<{ isOpen: boolean, onClose: () => void, payment: Payment, onShowReceipt?: (b: Booking) => void }> = ({ isOpen, onClose, payment, onShowReceipt }) => {
   const { state } = useApp();
   const booking = state.bookings.find(b => b.id === payment.booking_id);
-  const kamar = booking ? state.kamars.find(k => k.id === booking.kamar_id) : null;
+  const kamar = booking ? state.kamars.find(k => k.id == booking.kamar_id) : null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Detail Pembayaran" size="md">
@@ -489,7 +489,7 @@ export const UserDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ o
       case 'history': return <UserHistory onShowReceipt={handleShowReceipt} />;
       case 'payments': return <UserPayments onShowReceipt={handleShowReceipt} />;
       case 'keluhan': return <UserKeluhan />;
-      case 'profil': return <UserProfile />;
+      case 'profile': return <UserProfile />;
       case 'home':
       default: return <UserHome setActiveTab={setActiveTab} onNavigate={onNavigate} onShowReceipt={handleShowReceipt} onExtendRent={handleExtendRent} />;
     }
@@ -549,7 +549,7 @@ export const UserDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ o
              </div>
              <div>
                <h3 className="text-xl font-bold">Perpanjang Waktu Sewa</h3>
-               <p className="text-slate-500 text-sm mt-2">Masa sewa kamar {state.kamars.find(k => k.id === extendBookingTarget.kamar_id)?.nomor} saat ini akan berakhir pada <b>{extendBookingTarget.tgl_keluar}</b>. Tambah waktu 1 bulan?</p>
+               <p className="text-slate-500 text-sm mt-2">Masa sewa kamar {state.kamars.find(k => k.id == extendBookingTarget.kamar_id)?.nomor} saat ini akan berakhir pada <b>{extendBookingTarget.tgl_keluar}</b>. Tambah waktu 1 bulan?</p>
              </div>
              
              <div className="bg-slate-50 p-4 rounded-xl text-left space-y-2 border border-slate-100">
@@ -565,7 +565,7 @@ export const UserDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ o
                </div>
                <div className="flex justify-between text-sm border-t border-slate-200 pt-2 mt-2">
                  <span>Total Biaya (Perpanjangan):</span>
-                 <span className="font-bold text-slate-900">{formatRupiah(state.kamars.find(k => k.id === extendBookingTarget.kamar_id)?.harga_per_bulan || 0)}</span>
+                 <span className="font-bold text-slate-900">{formatRupiah(state.kamars.find(k => k.id == extendBookingTarget.kamar_id)?.harga_per_bulan || 0)}</span>
                </div>
              </div>
 
@@ -575,7 +575,7 @@ export const UserDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ o
                  className="flex-1" 
                  onClick={() => {
                    // Simulasi Pembayaran & Perpanjangan Langsung
-                   const harga = state.kamars.find(k => k.id === extendBookingTarget.kamar_id)?.harga_per_bulan || 0;
+                   const harga = state.kamars.find(k => k.id == extendBookingTarget.kamar_id)?.harga_per_bulan || 0;
                    const newTglKeluar = format(addMonths(new Date(extendBookingTarget.tgl_keluar), 1), 'yyyy-MM-dd');
                    dispatch({
                      type: 'UPDATE_BOOKING',
@@ -643,7 +643,7 @@ const UserHome = ({ setActiveTab, onNavigate, onShowReceipt, onExtendRent }: { s
             <div className="relative z-10 flex-1 space-y-6">
                <div className="space-y-2">
                   <p className="text-xs font-bold uppercase tracking-widest opacity-80">Booking Aktif</p>
-                  <h2 className="text-4xl font-serif">Kamar {state.kamars.find(k => k.id === activeBooking.kamar_id)?.nomor}</h2>
+                  <h2 className="text-4xl font-serif">Kamar {state.kamars.find(k => k.id == activeBooking.kamar_id)?.nomor}</h2>
                </div>
                <div className="flex gap-8">
                   <div>
@@ -780,36 +780,70 @@ const UserBookings = ({ onShowReceipt }: { onShowReceipt: (b: Booking) => void }
   const userBookings = state.bookings.filter(b => b.user_id === state.currentUser?.id);
   const activeBookings = userBookings.filter(b => b.status !== 'SELESAI' && b.status !== 'BATAL');
 
-  const handleQRClaimed = () => {
+  const handleQRClaimed = async () => {
     if (!selectedBooking) return;
 
-    // Simulate same as BookingFlow
-    const adminNotif = {
-      id: `N-REQ-${Date.now()}`,
-      type: 'PAYMENT_VERIFICATION_REQUEST',
-      recipient: 'admin',
-      title: 'Verifikasi Pembayaran QRIS',
-      message: `${state.currentUser?.name} telah melakukan pembayaran QRIS untuk Kamar ${state.kamars.find(k => k.id === selectedBooking.kamar_id)?.nomor}.`,
-      priority: 'HIGH',
-      action_required: true,
-      actions: ['KONFIRMASI', 'TOLAK'],
-      booking_id: selectedBooking.id,
-      tenant_name: state.currentUser?.name,
-      kamar_nomor: state.kamars.find(k => k.id === selectedBooking.kamar_id)?.nomor,
-      amount: selectedBooking.total,
-      method: 'QRIS',
-      created_at: new Date().toISOString(),
-      read: false
-    };
+    let backendStatus = 'DIHUNI';
+    try {
+      const resPay = await fetch(`http://127.0.0.1:8000/api/v1/bookings/${selectedBooking.id}/pay`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${state.currentUser?.token || ''}`
+        },
+        body: JSON.stringify({
+          metode_pembayaran: 'QRIS'
+        })
+      });
+      if (resPay.ok) {
+        const payData = await resPay.json();
+        backendStatus = payData.data.status;
+      }
+    } catch (err) {
+      console.error('API Error during QRIS claim', err);
+    }
 
     dispatch({ 
       type: 'UPDATE_BOOKING', 
       payload: { 
         id: selectedBooking.id, 
-        data: { paymentClaimTimestamp: new Date().toISOString() } 
+        data: { status: backendStatus, paymentClaimTimestamp: new Date().toISOString() } 
       } 
     });
-    dispatch({ type: 'ADD_NOTIFICATION', payload: adminNotif });
+    
+    dispatch({ 
+      type: 'UPDATE_KAMAR', 
+      payload: { 
+        id: selectedBooking.kamar_id, 
+        data: { status: backendStatus === 'DIHUNI' ? 'DIHUNI' : 'DIPESAN' } 
+      } 
+    });
+    
+    dispatch({
+      type: 'ADD_PAYMENT',
+      payload: {
+        id: `PAY-${Date.now()}`,
+        booking_id: selectedBooking.id,
+        jumlah: selectedBooking.total,
+        metode: selectedBooking.metode_bayar,
+        status: 'SUCCESS',
+        tanggal: new Date().toLocaleDateString('id-ID'),
+      }
+    });
+
+    dispatch({
+      type: 'ADD_NOTIFICATION',
+      payload: {
+        id: `N-CONF-${Date.now()}`,
+        type: 'PAYMENT_CONFIRMED',
+        recipient: state.currentUser?.id,
+        title: 'Pembayaran Berhasil',
+        message: `Pembayaran untuk Kamar ${state.kamars.find(k => k.id == selectedBooking.kamar_id)?.nomor} telah berhasil. Selamat menempati kamar Anda!`,
+        read: false,
+        created_at: new Date().toISOString()
+      }
+    });
     
     setShowQR(false);
     setSelectedBooking(null);
@@ -838,11 +872,11 @@ const UserBookings = ({ onShowReceipt }: { onShowReceipt: (b: Booking) => void }
                  <div className="flex justify-between items-start pt-4">
                     <div className="flex gap-4">
                        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-100 border border-slate-50">
-                          <img src={state.kamars.find(k => k.id === b.kamar_id)?.foto_url} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          <img src={state.kamars.find(k => k.id == b.kamar_id)?.foto_url} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                        </div>
                        <div>
-                          <h3 className="text-xl font-bold">Kamar {state.kamars.find(k => k.id === b.kamar_id)?.nomor}</h3>
-                          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{b.id} • {state.kamars.find(k => k.id === b.kamar_id)?.tipe}</p>
+                          <h3 className="text-xl font-bold">Kamar {state.kamars.find(k => k.id == b.kamar_id)?.nomor}</h3>
+                          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{b.id} • {state.kamars.find(k => k.id == b.kamar_id)?.tipe}</p>
                        </div>
                     </div>
                     <StatusBadge status={b.status} />
@@ -854,11 +888,11 @@ const UserBookings = ({ onShowReceipt }: { onShowReceipt: (b: Booking) => void }
                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-6 border-t border-slate-50 text-left">
                     <div>
                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Tgl Masuk</p>
-                       <p className="font-bold">{b.tgl_masuk}</p>
+                       <p className="font-bold">{b.tgl_masuk ? b.tgl_masuk.split('T')[0] : ((b as any).created_at ? String((b as any).created_at).split('T')[0] : '-')}</p>
                     </div>
                     <div>
                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Tgl Keluar</p>
-                       <p className="font-bold">{b.tgl_keluar}</p>
+                       <p className="font-bold">{b.tgl_keluar ? b.tgl_keluar.split('T')[0] : '-'}</p>
                     </div>
                     <div>
                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Metode</p>
@@ -915,7 +949,7 @@ const UserBookings = ({ onShowReceipt }: { onShowReceipt: (b: Booking) => void }
            isOpen={showQR}
            onClose={() => setShowQR(false)}
            booking={selectedBooking}
-           kamar={state.kamars.find(k => k.id === selectedBooking.kamar_id)!}
+           kamar={state.kamars.find(k => k.id == selectedBooking.kamar_id)!}
            onPaymentClaimed={handleQRClaimed}
          />
        )}
@@ -943,10 +977,10 @@ const UserHistory = ({ onShowReceipt }: { onShowReceipt: (b: Booking) => void })
                   <div className="flex justify-between items-start">
                      <div className="flex gap-4">
                         <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-50 border border-slate-100 group-hover:scale-105 transition-transform">
-                           <img src={state.kamars.find(k => k.id === b.kamar_id)?.foto_url} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                           <img src={state.kamars.find(k => k.id == b.kamar_id)?.foto_url} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         </div>
                         <div>
-                           <h4 className="font-bold text-lg text-slate-800">Kamar {state.kamars.find(k => k.id === b.kamar_id)?.nomor}</h4>
+                           <h4 className="font-bold text-lg text-slate-800">Kamar {state.kamars.find(k => k.id == b.kamar_id)?.nomor}</h4>
                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">{b.id}</p>
                         </div>
                      </div>
@@ -956,7 +990,7 @@ const UserHistory = ({ onShowReceipt }: { onShowReceipt: (b: Booking) => void })
                   <div className="grid grid-cols-2 gap-6 py-6 border-y border-slate-50 text-left">
                      <div>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5 ">Periode Menginap</p>
-                        <p className="text-xs font-bold text-slate-700">{b.tgl_masuk} — {b.tgl_keluar}</p>
+                        <p className="text-xs font-bold text-slate-700">{b.tgl_masuk ? b.tgl_masuk.split('T')[0] : ((b as any).created_at ? String((b as any).created_at).split('T')[0] : '-')} — {b.tgl_keluar ? b.tgl_keluar.split('T')[0] : '-'}</p>
                         <p className="text-[10px] text-slate-400 mt-1">{b.durasi_bulan} Bulan</p>
                      </div>
                      <div className="text-right">
@@ -1009,7 +1043,7 @@ const UserPayments = ({ onShowReceipt }: { onShowReceipt: (b: Booking) => void }
           {userPayments.length > 0 ? (
             userPayments.map(p => {
               const booking = userBookings.find(b => b.id === p.booking_id);
-              const kamar = booking ? state.kamars.find(k => k.id === booking.kamar_id) : null;
+              const kamar = booking ? state.kamars.find(k => k.id == booking.kamar_id) : null;
               
               return (
                 <div 
@@ -1093,6 +1127,7 @@ const UserKeluhan = () => {
     const [showReportForm, setShowReportForm] = useState(false);
     const [newComplaint, setNewComplaint] = useState({
       booking_id: '',
+      kategori: 'FASILITAS' as 'FASILITAS' | 'ADMINISTRASI' | 'LINGKUNGAN',
       deskripsi: '',
       priority: 'MEDIUM' as ComplaintPriority,
       attachment_url: ''
@@ -1158,46 +1193,78 @@ const UserKeluhan = () => {
     const userBookings = state.bookings.filter(b => b.user_id === state.currentUser?.id && ['DIKONFIRMASI', 'DIHUNI', 'SELESAI'].includes(b.status));
     const userKeluhans = state.keluhans.filter(k => userBookings.some(b => b.id === k.booking_id) && k.status !== 'RESOLVED');
 
-    const handleSubmit = (e: React.FormEvent) => {
+    if (userBookings.length === 0) {
+      return (
+        <div className="space-y-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-serif text-slate-900">Keluhan & Laporan</h1>
+              <p className="text-slate-500 mt-1">Sampaikan kendala fasilitas atau administrasi kepada pengelola.</p>
+            </div>
+          </div>
+          <div className="bg-yellow-50 text-yellow-800 p-6 rounded-2xl border border-yellow-200 shadow-sm flex flex-col items-center justify-center text-center space-y-4">
+             <div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-8 h-8" />
+             </div>
+             <div>
+                <h3 className="font-bold text-lg mb-1">Tidak Dapat Membuat Keluhan</h3>
+                <p className="text-sm">Anda harus memiliki setidaknya satu kamar dengan status aktif (Terkonfirmasi atau Dihuni) untuk dapat membuat keluhan baru.</p>
+             </div>
+          </div>
+        </div>
+      );
+    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!newComplaint.booking_id || !newComplaint.deskripsi) return;
 
       const selectedBooking = userBookings.find(b => b.id === newComplaint.booking_id);
-      const kamar = state.kamars.find(k => k.id === selectedBooking?.kamar_id);
+      const kamar = state.kamars.find(k => k.id == selectedBooking?.kamar_id);
 
-      const complaint: Keluhan = {
-        id: `K-${Date.now()}`,
-        booking_id: newComplaint.booking_id,
-        user_name: state.currentUser?.name || 'Anonymous',
-        kamar_nomor: kamar?.nomor || '?',
-        deskripsi: newComplaint.deskripsi,
-        status: 'OPEN',
-        assigned_to: 'Staff Maintenance',
-        priority: newComplaint.priority,
-        created_at: new Date().toISOString(),
-        resolved_at: null,
-        attachment_url: newComplaint.attachment_url || undefined
-      };
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/v1/complaints', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${state.currentUser?.token}`
+          },
+          body: JSON.stringify({
+            kategori: newComplaint.kategori,
+            deskripsi: `Kamar ${kamar?.nomor || '?'}: ${newComplaint.deskripsi}`
+          })
+        });
 
-      dispatch({ type: 'ADD_KELUHAN', payload: complaint });
-      
-      // Notify Admin
-      dispatch({
-        type: 'ADD_NOTIFICATION',
-        payload: {
-          id: `N-K-${Date.now()}`,
-          type: 'NEW_COMPLAINT',
-          recipient: 'admin',
-          title: 'Keluhan Baru',
-          message: `${state.currentUser?.name} melaporkan keluhan di Kamar ${kamar?.nomor}`,
-          priority: newComplaint.priority,
-          read: false,
-          created_at: new Date().toISOString()
+        const json = await response.json();
+
+        if (response.ok && json.success) {
+          // Add manually to state to reflect instantly without reloading or relying on fetch again
+          const mappedComplaint: Keluhan = {
+            id: json.data.id?.toString() || `K-${Date.now()}`,
+            booking_id: newComplaint.booking_id,
+            user_name: state.currentUser?.name || 'Anonymous',
+            kamar_nomor: kamar?.nomor || '?',
+            deskripsi: json.data.deskripsi,
+            status: json.data.status,
+            assigned_to: 'Staff Maintenance',
+            priority: json.data.kategori === 'FASILITAS' ? 'HIGH' : (json.data.kategori === 'ADMINISTRASI' ? 'MEDIUM' : 'LOW'),
+            created_at: json.data.created_at || new Date().toISOString(),
+            resolved_at: null,
+            attachment_url: newComplaint.attachment_url || undefined
+          };
+
+          dispatch({ type: 'ADD_KELUHAN', payload: mappedComplaint });
+          
+          setShowReportForm(false);
+          setNewComplaint({ booking_id: '', kategori: 'FASILITAS', deskripsi: '', priority: 'MEDIUM', attachment_url: '' });
+        } else {
+          alert('Gagal mengirim keluhan: ' + (json.message || 'Error'));
         }
-      });
-
-      setShowReportForm(false);
-      setNewComplaint({ booking_id: '', deskripsi: '', priority: 'MEDIUM', attachment_url: '' });
+      } catch (err) {
+        console.error('Failed to submit complaint', err);
+        alert('Tidak dapat terhubung ke server');
+      }
     };
 
     return (
@@ -1282,9 +1349,23 @@ const UserKeluhan = () => {
                     <option value="">Pilih Unit Kamar</option>
                     {userBookings.map(b => (
                       <option key={b.id} value={b.id}>
-                        Room {state.kamars.find(k => k.id === b.kamar_id)?.nomor} ({b.tgl_masuk})
+                        Room {state.kamars.find(k => k.id == b.kamar_id)?.nomor} ({b.tgl_masuk ? b.tgl_masuk.split('T')[0] : ((b as any).created_at ? String((b as any).created_at).split('T')[0] : '-')})
                       </option>
                     ))}
+                 </select>
+              </div>
+
+              <div className="space-y-2">
+                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Kategori Keluhan</label>
+                 <select 
+                   value={newComplaint.kategori}
+                   onChange={e => setNewComplaint({...newComplaint, kategori: e.target.value as any})}
+                   className="w-full bg-slate-50 border border-slate-100 p-4 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                   required
+                 >
+                    <option value="FASILITAS">Fasilitas (AC mati, bocor)</option>
+                    <option value="ADMINISTRASI">Administrasi (Tagihan salah, data error)</option>
+                    <option value="LINGKUNGAN">Lingkungan (Bising, parkir penuh)</option>
                  </select>
               </div>
 
@@ -1390,10 +1471,14 @@ const UserProfile = () => {
     const [name, setName] = useState(user?.name || '');
     const [phone, setPhone] = useState(user?.phone || '');
     const [address, setAddress] = useState(user?.address || '');
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar || null);
+    
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [showOTP, setShowOTP] = useState(false);
     const [otpValue, setOtpValue] = useState('');
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     if (!user) return <div className="text-center py-20 text-slate-400">Silakan login untuk melihat profil.</div>;
 
@@ -1415,26 +1500,59 @@ const UserProfile = () => {
         }
     };
 
-    const handleSave = (e: React.FormEvent) => {
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            if (file.size > 2 * 1024 * 1024) {
+                alert('Ukuran gambar maksimal 2MB');
+                return;
+            }
+            setAvatarFile(file);
+            setAvatarPreview(URL.createObjectURL(file));
+        }
+    };
+
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
         setMessage(null);
 
-        // Simulate API call
-        setTimeout(() => {
-            dispatch({
-                type: 'UPDATE_USER',
-                payload: {
-                    id: user.id,
-                    data: { name, phone, address }
-                }
+        const formData = new FormData();
+        formData.append('name', name);
+        if (phone) formData.append('phone', phone);
+        if (address) formData.append('address', address);
+        if (avatarFile) formData.append('avatar', avatarFile);
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/api/v1/auth/profile', {
+                method: 'POST', // POST for multipart/form-data
+                headers: {
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${user.token}`
+                },
+                body: formData
             });
-            setIsSaving(false);
-            setMessage({ type: 'success', text: 'Profil berhasil diperbarui!' });
+
+            const data = await response.json();
             
-            // Clear message after 3 seconds
+            if (response.ok && data.success) {
+                dispatch({
+                    type: 'UPDATE_USER',
+                    payload: {
+                        id: user.id,
+                        data: data.user
+                    }
+                });
+                setMessage({ type: 'success', text: 'Profil berhasil diperbarui!' });
+            } else {
+                setMessage({ type: 'error', text: data.message || 'Gagal memperbarui profil.' });
+            }
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Terjadi kesalahan jaringan.' });
+        } finally {
+            setIsSaving(false);
             setTimeout(() => setMessage(null), 3000);
-        }, 800);
+        }
     };
 
     return (
@@ -1461,9 +1579,26 @@ const UserProfile = () => {
                 <div className="p-8 md:p-12 space-y-10">
                     {/* Header Profil */}
                     <div className="flex items-center gap-6">
-                        <div className="w-24 h-24 bg-emerald-100 text-emerald-700 flex items-center justify-center rounded-full text-3xl font-bold border-4 border-white shadow-xl shadow-emerald-100/50">
-                            {name.charAt(0)}
+                        <div 
+                            className="relative w-24 h-24 bg-emerald-100 text-emerald-700 flex items-center justify-center rounded-full text-3xl font-bold border-4 border-white shadow-xl shadow-emerald-100/50 cursor-pointer group overflow-hidden"
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            {avatarPreview ? (
+                                <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            ) : (
+                                name.charAt(0)
+                            )}
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Camera className="w-8 h-8 text-white" />
+                            </div>
                         </div>
+                        <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            className="hidden" 
+                            accept="image/jpeg,image/png,image/gif,image/jpg" 
+                            onChange={handleAvatarChange} 
+                        />
                         <div>
                             <h2 className="text-xl font-bold text-slate-900">{name}</h2>
                             <p className="text-sm text-slate-500">{user.email}</p>

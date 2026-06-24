@@ -132,15 +132,19 @@ class RoomController extends Controller
     /**
      * Helper: Terapkan pricing strategy ke semua kamar
      */
-    private function applyPricingStrategy(array $rooms, string $strategy): array
+    private function applyPricingStrategy(iterable $rooms, string $strategy): array
     {
-        return array_map(function ($room) use ($strategy) {
-            $room['displayPrice'] = PricingStrategyManager::calculatePrice(
+        $result = [];
+        foreach ($rooms as $room) {
+            // Because $room could be an Eloquent model, we can use array access or convert it
+            $roomArray = $room instanceof \Illuminate\Database\Eloquent\Model ? $room->toArray() : (array) $room;
+            $roomArray['displayPrice'] = PricingStrategyManager::calculatePrice(
                 $strategy,
-                $room['harga_dasar'] ?? $room['price'] ?? 0
+                $roomArray['harga_dasar'] ?? $roomArray['price'] ?? 0
             );
-            return $room;
-        }, $rooms);
+            $result[] = $roomArray;
+        }
+        return $result;
     }
 
     /**
@@ -194,5 +198,37 @@ class RoomController extends Controller
         $this->kamarRepository->clearCache();
 
         return response()->json(['success' => true, 'message' => 'Kamar berhasil dihapus']);
+    }
+
+    /**
+     * POST /api/v1/admin/rooms/upload-image
+     * Mengupload gambar kamar
+     */
+    public function uploadImage(Request $request): JsonResponse
+    {
+        $request->validate([
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // Max 5MB
+        ]);
+
+        $file = $request->file('image');
+        $filename = 'room_' . now()->format('Ymd_His') . '_' . \Illuminate\Support\Str::random(8) . '.' . $file->getClientOriginalExtension();
+        $path = $file->storeAs('rooms', $filename, 'public');
+
+        if (!$path) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengupload gambar.',
+            ], 500);
+        }
+
+        $publicUrl = asset('storage/' . $path);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Gambar berhasil diupload.',
+            'data' => [
+                'url' => $publicUrl
+            ]
+        ], 201);
     }
 }

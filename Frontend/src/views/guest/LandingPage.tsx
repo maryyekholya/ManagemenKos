@@ -13,9 +13,10 @@ interface LandingPageProps {
   onBook: (kamar: Kamar) => void;
   dispatch: React.Dispatch<any>;
   activeView?: string;
+  hasActiveBooking?: boolean;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ kamars, activeStrategy, onBook, dispatch, activeView }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ kamars, activeStrategy, onBook, dispatch, activeView, hasActiveBooking }) => {
   const [filterType, setFilterType] = useState<RoomType | 'All'>('All');
   const [maxPrice, setMaxPrice] = useState<number>(2500000);
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,7 +33,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ kamars, activeStrategy
   const filteredKamars = useMemo(() => {
     return kamars.filter(k => {
       const matchesType = filterType === 'All' || k.tipe === filterType;
-      const matchesPrice = PricingStrategy.calculate(k.harga_dasar, activeStrategy) <= maxPrice;
+      const matchesPrice = (k.harga_aktif || k.harga_dasar) <= maxPrice;
       const matchesSearch = k.nomor.includes(searchQuery) || k.tipe.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesType && matchesPrice && matchesSearch && k.status === 'TERSEDIA';
     });
@@ -197,6 +198,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ kamars, activeStrategy
                      strategy={activeStrategy} 
                      onBook={onBook}
                      onSelect={setSelectedKamar}
+                     hasActiveBooking={hasActiveBooking}
                    />
                  </motion.div>
                ))}
@@ -279,7 +281,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ kamars, activeStrategy
                  <div>
                     <p className="text-xs font-bold text-slate-400 uppercase mb-2">Harga Sewa Bulanan</p>
                     <p className="text-3xl font-bold text-emerald-600 font-mono">
-                      {formatRupiah(PricingStrategy.calculate(selectedKamar.harga_dasar, activeStrategy))}
+                      {formatRupiah(selectedKamar.harga_aktif || selectedKamar.harga_dasar)}
                     </p>
                  </div>
                  <div className="space-y-3">
