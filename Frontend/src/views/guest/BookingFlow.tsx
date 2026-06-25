@@ -458,9 +458,56 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
                   <div className="pt-4">
                     <Button 
                       className="w-full py-4 text-lg shadow-xl shadow-emerald-100" 
-                      onClick={() => {
+                      onClick={async () => {
+                        let finalStatus = paymentResult.transaction_status === 'settlement' || paymentResult.transaction_status === 'capture' ? 'DIKONFIRMASI' : 'MENUNGGU_PEMBAYARAN';
+                        let finalId = paymentResult.order_id;
+                        
+                        if (state.currentUser?.token) {
+                          try {
+                            const res = await fetch('http://127.0.0.1:8000/api/v1/bookings', {
+                              method: 'POST',
+                              headers: {
+                                'Authorization': `Bearer ${state.currentUser.token}`,
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                              },
+                              body: JSON.stringify({
+                                kamar_id: kamar.id,
+                                durasi_bulan: formData.duration
+                              })
+                            });
+                            const json = await res.json();
+                            if (json.success && json.data) {
+                              finalId = json.data.id;
+                              
+                              // Proceed
+                              await fetch(`http://127.0.0.1:8000/api/v1/bookings/${finalId}/proceed`, {
+                                method: 'PUT',
+                                headers: { 'Authorization': `Bearer ${state.currentUser.token}`, 'Accept': 'application/json' }
+                              });
+
+                              // If Paid
+                              if (finalStatus === 'DIKONFIRMASI') {
+                                await fetch(`http://127.0.0.1:8000/api/v1/bookings/${finalId}/pay`, {
+                                  method: 'PUT',
+                                  headers: {
+                                    'Authorization': `Bearer ${state.currentUser.token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                  },
+                                  body: JSON.stringify({
+                                    metode_bayar: formData.paymentMethod
+                                  })
+                                });
+                              }
+                            }
+                          } catch (e) {
+                            console.error('Failed to save booking to backend', e);
+                          }
+                        }
+
                         const booking: Booking = {
-                          id: paymentResult.order_id,
+                          id: finalId,
                           kamar_id: kamar.id,
                           user_id: state.currentUser?.id || generateId('USR'),
                           user_name: formData.name,
@@ -468,7 +515,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
                           tgl_masuk: formData.startDate,
                           tgl_keluar: format(addMonths(new Date(formData.startDate), formData.duration), 'yyyy-MM-dd'),
                           durasi_bulan: formData.duration,
-                          status: paymentResult.transaction_status === 'settlement' || paymentResult.transaction_status === 'capture' ? 'DIKONFIRMASI' : 'MENUNGGU_PEMBAYARAN',
+                          status: finalStatus as any,
                           total: totalOverall,
                           metode_bayar: formData.paymentMethod,
                           created_at: new Date().toISOString(),

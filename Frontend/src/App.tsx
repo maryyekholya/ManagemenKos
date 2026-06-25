@@ -465,7 +465,15 @@ export default function App() {
               dispatch({ type: 'ADD_BOOKING', payload: booking });
             }
             dispatch({ type: 'UPDATE_KAMAR', payload: { id: booking.kamar_id, data: { status: booking.status } } });
-            BookingPublisher.getInstance().notify('BOOKING_CREATED', { message: `Pemesanan baru untuk Kamar ${state.kamars.find(k => k.id == booking.kamar_id)?.nomor}` });
+            dispatch({ type: 'ADD_NOTIFICATION', payload: {
+              id: `NOTIF-${Date.now()}`,
+              user_id: 'admin', // send to admin
+              title: 'Pesanan Baru',
+              message: `Pemesanan baru untuk Kamar ${state.kamars.find((k: Kamar) => k.id === booking.kamar_id)?.nomor}`,
+              type: 'info',
+              is_read: false,
+              created_at: new Date().toISOString()
+            } });
             setBookingTarget(null);
             dispatch({ type: 'SET_VIEW', payload: 'user-dashboard' });
           }}
