@@ -12,7 +12,6 @@ import { formatRupiah, cn } from '../../lib/utils';
 import { StatusBadge, Button, Modal } from '../../components/shared/UI';
 import { motion, AnimatePresence } from 'motion/react';
 
-import { ChatWidget } from '../../components/shared/ChatWidget';
 import { SidebarUserActions } from '../../components/shared/SidebarUserActions';
 
 export const ManagerDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate }) => {
@@ -92,7 +91,6 @@ export const ManagerDashboard: React.FC<{ onNavigate: (v: string) => void }> = (
                 {activeTab === 'verifikasi' && <PaymentVerification />}
                 {activeTab === 'transaksi' && <FinancialHistory />}
             </main>
-            <ChatWidget />
         </div>
     );
 };
@@ -105,62 +103,71 @@ const FinancialHistory = () => {
    const [apiBookings, setApiBookings] = useState<Booking[]>([]);
    const [loading, setLoading] = useState(true);
 
-   useEffect(() => {
-     const fetchData = async () => {
-       try {
-         const [pRes, bRes] = await Promise.all([
-           fetch('http://127.0.0.1:8000/api/v1/admin/payments'),
-           fetch('http://127.0.0.1:8000/api/v1/admin/bookings'),
-         ]);
-         const [pJson, bJson] = await Promise.all([pRes.json(), bRes.json()]);
-         if (pJson.success) setApiPayments(pJson.data);
-         if (bJson.success) setApiBookings(bJson.data);
-       } catch {
-         // fallback: gunakan state lokal
-       } finally {
-         setLoading(false);
-       }
-     };
-     fetchData();
-   }, []);
-
-   // Gabungkan data API + lokal (API diprioritaskan jika tersedia)
-   const allPayments = apiPayments.length > 0 ? apiPayments : state.payments;
-   const allBookings = apiBookings.length > 0 ? apiBookings : state.bookings;
-
-   let successPayments = allPayments.filter(p => p.status === 'SUCCESS');
-
    const [filterMonth, setFilterMonth] = useState<string>('all');
    const [filterYear, setFilterYear] = useState<string>('all');
    const [filterType, setFilterType] = useState<string>('all');
    const [filterRoom, setFilterRoom] = useState<string>('all');
 
+   useEffect(() => {
+     const fetchData = async () => {
+       setLoading(true);
+       try {
+         const queryParams = new URLSearchParams({
+           month: filterMonth,
+           year: filterYear,
+           roomType: filterType
+         }).toString();
+
+         const res = await fetch(`http://127.0.0.1:8000/api/v1/manager/reports/financial?${queryParams}`, {
+           headers: {
+             'Authorization': `Bearer ${state.currentUser?.token || ''}`
+           }
+         });
+         const json = await res.json();
+         if (json.success) {
+           setApiPayments(json.data);
+         }
+       } catch {
+         // fallback: gunakan state lokal jika API gagal
+       } finally {
+         setLoading(false);
+       }
+     };
+     fetchData();
+   }, [filterMonth, filterYear, filterType, state.currentUser]);
+
+   // Gabungkan data API + lokal (API diprioritaskan jika tersedia)
+   const allPayments = apiPayments.length > 0 ? apiPayments : state.payments;
+   const allBookings = state.bookings; // Bookings tetap dari state lokal
+
+   let successPayments = allPayments as any[];
+   // Jika data dari state lokal, kita harus menormalisasi strukturnya agar sesuai dengan yang dikembalikan backend
+   if (apiPayments.length === 0) {
+     successPayments = allPayments.filter(p => p.status === 'SUCCESS').map(p => {
+       const b = allBookings.find(bk => bk.id === p.booking_id);
+       const k = state.kamars.find(km => km.id == b?.kamar_id);
+       return {
+         payment_id: p.id,
+         tanggal: p.tanggal,
+         metode: p.metode,
+         jumlah: p.jumlah,
+         midtrans_id: p.midtrans_id,
+         user_name: b?.user_name,
+         kamar_nomor: k?.nomor,
+         kamar_tipe: k?.tipe,
+         booking_id: p.booking_id
+       };
+     });
+   }
+
    if (search) {
        const lowerSearch = search.toLowerCase();
        successPayments = successPayments.filter(p => {
-           const booking = allBookings.find(b => b.id === p.booking_id);
-           return p.id.toLowerCase().includes(lowerSearch) || 
-                  (booking?.user_name || '').toLowerCase().includes(lowerSearch) ||
+           return p.payment_id.toLowerCase().includes(lowerSearch) || 
+                  (p.user_name || '').toLowerCase().includes(lowerSearch) ||
                   p.metode.toLowerCase().includes(lowerSearch);
        });
    }
-
-   // Terapkan Filter Pembayaran
-   successPayments = successPayments.filter(p => {
-       const date = new Date(p.tanggal);
-       const pMonth = (date.getMonth() + 1).toString();
-       const pYear = date.getFullYear().toString();
-       const booking = allBookings.find(b => b.id === p.booking_id);
-       const kamar = state.kamars.find(k => k.id === booking?.kamar_id);
-
-       let match = true;
-       if (filterMonth !== 'all' && pMonth !== filterMonth) match = false;
-       if (filterYear !== 'all' && pYear !== filterYear) match = false;
-       if (filterType !== 'all' && kamar?.tipe !== filterType) match = false;
-       if (filterRoom !== 'all' && kamar?.id !== filterRoom) match = false;
-
-       return match;
-   });
 
    successPayments.sort((a, b) => {
        if (sortBy === 'date_desc') return new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime();
@@ -174,36 +181,14 @@ const FinancialHistory = () => {
 
    // ── Download CSV ─────────────────────────────────────────────
    const handleDownload = () => {
-     const rows = [
-       ['ID Transaksi', 'Tanggal', 'Penyewa', 'Kamar', 'Metode', 'Nominal', 'Midtrans ID'],
-       ...successPayments.map(p => {
-         const booking = allBookings.find(b => b.id === p.booking_id);
-         const kamar = state.kamars.find(k => k.id === booking?.kamar_id);
-         return [
-           p.id,
-           p.tanggal,
-           booking?.user_name || 'System',
-           kamar ? `Kamar ${kamar.nomor}` : '-',
-           p.metode,
-           p.jumlah.toString(),
-           p.midtrans_id || 'MANUAL',
-         ];
-       }),
-       [],
-       ['', '', '', '', 'TOTAL PENDAPATAN', totalRevenue.toString(), ''],
-     ];
-
-     const csvContent = rows
-       .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-       .join('\n');
-
-     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-     const url = URL.createObjectURL(blob);
-     const link = document.createElement('a');
-     link.href = url;
-     link.download = `laporan-keuangan-${new Date().toISOString().split('T')[0]}.csv`;
-     link.click();
-     URL.revokeObjectURL(url);
+     const queryParams = new URLSearchParams({
+       month: filterMonth,
+       year: filterYear,
+       roomType: filterType,
+       token: state.currentUser?.token || ''
+     }).toString();
+     
+     window.open(`http://127.0.0.1:8000/api/v1/manager/reports/export-csv?${queryParams}`, '_blank');
    };
 
    return (
@@ -312,17 +297,15 @@ const FinancialHistory = () => {
                </thead>
                <tbody className="divide-y divide-slate-50">
                   {successPayments.map(p => {
-                     const booking = allBookings.find(b => b.id === p.booking_id);
-                     const kamar = state.kamars.find(k => k.id == booking?.kamar_id);
                      return (
-                        <tr key={p.id} className="hover:bg-slate-50/50 transition-all">
+                        <tr key={p.payment_id} className="hover:bg-slate-50/50 transition-all">
                            <td className="px-8 py-6">
-                              <p className="font-mono text-xs font-bold text-slate-900 mb-1">#{p.id.slice(0,8)}</p>
+                              <p className="font-mono text-xs font-bold text-slate-900 mb-1">#{String(p.payment_id).slice(0,8)}</p>
                               <p className="text-[10px] text-slate-400 font-bold uppercase">{p.tanggal}</p>
                            </td>
                            <td className="px-8 py-6">
-                              <p className="font-bold text-slate-900">{booking?.user_name || 'System'}</p>
-                              <p className="text-[10px] text-emerald-600 font-bold uppercase">Room {kamar?.nomor || '-'}</p>
+                              <p className="font-bold text-slate-900">{p.user_name || 'System'}</p>
+                              <p className="text-[10px] text-emerald-600 font-bold uppercase">Room {p.kamar_nomor || '-'}</p>
                            </td>
                            <td className="px-8 py-6">
                               <span className="px-3 py-1 bg-slate-100 rounded-full text-[9px] font-bold uppercase tracking-widest text-slate-500">
@@ -820,7 +803,12 @@ const PaymentVerification = () => {
     
     const fetchBookings = useCallback(async () => {
         try {
-            const res = await fetch('http://127.0.0.1:8000/api/v1/admin/bookings');
+            const res = await fetch('http://127.0.0.1:8000/api/v1/admin/bookings', {
+                headers: {
+                    'Authorization': `Bearer ${state.currentUser?.token}`,
+                    'Accept': 'application/json'
+                }
+            });
             const json = await res.json();
             if (json.success) setApiBookings(json.data);
         } catch (error) {
@@ -835,7 +823,7 @@ const PaymentVerification = () => {
     // Cari booking CASH yang DIKONFIRMASI, ATAU metode lain yang diunggah bukti tapi masih MENUNGGU_PEMBAYARAN
     const allBookings = apiBookings.length > 0 ? apiBookings : state.bookings;
     const pendingVerifications = allBookings.filter(b => 
-        (b.status === 'DIKONFIRMASI' && b.metode_bayar === 'CASH') ||
+        b.status === 'DIKONFIRMASI' ||
         (b.status === 'MENUNGGU_PEMBAYARAN' && b.paymentClaimTimestamp)
     );
 
@@ -844,7 +832,10 @@ const PaymentVerification = () => {
             try {
                 const res = await fetch(`http://127.0.0.1:8000/api/v1/admin/bookings/${booking.id}/approve`, {
                     method: 'PUT',
-                    headers: { 'Accept': 'application/json' }
+                    headers: { 
+                        'Authorization': `Bearer ${state.currentUser?.token}`,
+                        'Accept': 'application/json' 
+                    }
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -861,7 +852,10 @@ const PaymentVerification = () => {
             try {
                 const res = await fetch(`http://127.0.0.1:8000/api/v1/admin/bookings/${booking.id}/reject`, {
                     method: 'PUT',
-                    headers: { 'Accept': 'application/json' }
+                    headers: { 
+                        'Authorization': `Bearer ${state.currentUser?.token}`,
+                        'Accept': 'application/json' 
+                    }
                 });
                 const data = await res.json();
                 if (data.success) {

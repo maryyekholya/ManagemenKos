@@ -239,7 +239,11 @@ export default function App() {
   useEffect(() => {
     if (state.currentUser?.token) {
       // Fetch Bookings
-      fetch('http://127.0.0.1:8000/api/v1/bookings', {
+      const bookingUrl = (state.currentUser.role === 'admin' || state.currentUser.role === 'manager')
+        ? 'http://127.0.0.1:8000/api/v1/admin/bookings'
+        : 'http://127.0.0.1:8000/api/v1/bookings';
+
+      fetch(bookingUrl, {
         headers: {
           'Authorization': `Bearer ${state.currentUser.token}`,
           'Accept': 'application/json'
@@ -251,7 +255,7 @@ export default function App() {
           dispatch({ type: 'SET_BOOKINGS', payload: data.data });
         }
       })
-      .catch(err => console.error('Failed to fetch user bookings:', err));
+      .catch(err => console.error('Failed to fetch bookings:', err));
 
       // Fetch Complaints
       fetch('http://127.0.0.1:8000/api/v1/complaints', {
@@ -345,7 +349,7 @@ export default function App() {
       const response = await fetch('http://127.0.0.1:8000/api/v1/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ email: 'theo@gmail.com', name: 'Theo (Google Mock)' })
+        body: JSON.stringify({ email: 'budi.santoso@gmail.com', name: 'Budi Santoso (Google)' })
       });
       const data = await response.json();
       if (!response.ok || !data.success) {

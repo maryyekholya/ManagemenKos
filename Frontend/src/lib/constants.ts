@@ -114,8 +114,12 @@ export const DEFAULT_CONFIG: AppConfig = {
 };
 
 export const DEMO_USERS = [
-  { email: 'user@nestin.id', password: 'user123', role: 'user', name: 'Budi Santoso', id: 'USR001' },
-  { email: 'admin@nestin.id', password: 'admin123', role: 'admin', name: 'Sari Dewi', id: 'ADM001' },
-  { email: 'manager@nestin.id', password: 'manager123', role: 'manager', name: 'Hendra Wijaya', id: 'MGR001' },
-  { email: 'newuser@nestin.id', password: 'user123', role: 'user', name: 'Siti Aminah', id: 'USR004' },
+  { email: 'budi.santoso@gmail.com', password: 'password123', role: 'user', name: 'Budi Santoso', id: 'USR001' },
+  { email: 'sari.dewi@gmail.com', password: 'password123', role: 'admin', name: 'Sari Dewi', id: 'ADM001' },
+  { email: 'hendra.wijaya@gmail.com', password: 'password123', role: 'manager', name: 'Hendra Wijaya', id: 'MGR001' },
+  { email: 'siti.aminah@gmail.com', password: 'password123', role: 'user', name: 'Siti Aminah', id: 'USR002' },
+  { email: 'agus.pratama@gmail.com', password: 'password123', role: 'user', name: 'Agus Pratama', id: 'USR003' },
+  { email: 'rini.wulandari@gmail.com', password: 'password123', role: 'user', name: 'Rini Wulandari', id: 'USR004' },
+  { email: 'joko.susilo@gmail.com', password: 'password123', role: 'user', name: 'Joko Susilo', id: 'USR005' },
+  { email: 'dian.permata@gmail.com', password: 'password123', role: 'manager', name: 'Dian Permatasari', id: 'MGR002' },
 ];

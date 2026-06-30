@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 
 // ─── PUBLIC ─────────────────────────────────────────────
 Route::get('/', [LandingController::class, 'index'])->name('landing');
+Route::get('/status-checker', [LandingController::class, 'statusChecker'])->name('status.checker');
 
 // Auth (login, register, logout)
 require __DIR__ . '/auth.php';

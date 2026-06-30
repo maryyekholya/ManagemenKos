@@ -86,16 +86,30 @@ class AccountController extends Controller
             return response()->json(['success' => false, 'message' => 'Pengguna tidak ditemukan'], 404);
         }
 
-        // Prevent admin from deleting themselves (optional but good practice)
-        // if ($user->id === auth()->id()) {
-        //     return response()->json(['success' => false, 'message' => 'Anda tidak dapat menghapus akun Anda sendiri'], 400);
-        // }
-
-        $user->delete();
+        $user->is_active = false;
+        $user->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'Akun berhasil dihapus'
+            'message' => 'Akun berhasil dinonaktifkan'
+        ]);
+    }
+
+    public function toggleActive($id)
+    {
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Pengguna tidak ditemukan'], 404);
+        }
+
+        $user->is_active = !$user->is_active;
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Status akun berhasil diubah',
+            'data'    => $user
         ]);
     }
 }

@@ -9,7 +9,6 @@ import { BookingMachine } from '../../lib/patterns';
 import { formatRupiah, cn } from '../../lib/utils';
 import { StatusBadge, Button, FormInput, Modal } from '../../components/shared/UI';
 import { QRPaymentModal } from '../../components/shared/QRPaymentModal';
-import { ChatWidget } from '../../components/shared/ChatWidget';
 import { motion, AnimatePresence } from 'motion/react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -120,27 +119,11 @@ const PaymentReceipt: React.FC<{ isOpen: boolean, onClose: () => void, booking: 
   const totalPaid = payments.reduce((acc, p) => acc + p.jumlah, 0);
 
   const handleDownloadPDF = async () => {
-    const element = document.getElementById('receipt-content');
-    if (!element) return;
-
+    if (!booking || !state.currentUser) return;
+    
     setIsGenerating(true);
     try {
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff'
-      });
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'px',
-        format: [canvas.width / 2, canvas.height / 2]
-      });
-
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2);
-      pdf.save(`KWITANSI-NEstin-${booking.id.toUpperCase()}.pdf`);
+      window.open(`http://127.0.0.1:8000/api/v1/bookings/${booking.id}/receipt/pdf?token=${state.currentUser.token}`, '_blank');
     } catch (error) {
       console.error('PDF Generation failed:', error);
     } finally {
@@ -463,6 +446,7 @@ export const UserDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ o
   const [receiptBooking, setReceiptBooking] = useState<Booking | null>(null);
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [extendBookingTarget, setExtendBookingTarget] = useState<Booking | null>(null);
+  const [extendDuration, setExtendDuration] = useState(1);
 
   const tabs = [
     { id: 'home', label: 'Beranda', icon: Home },
@@ -524,10 +508,6 @@ export const UserDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ o
         </main>
       </div>
 
-      {state.currentUser && (
-        <ChatWidget roomId={state.currentUser.id} targetName="Admin NestIn" />
-      )}
-
       {receiptBooking && (
         <PaymentReceipt 
           isOpen={showReceipt}
@@ -549,23 +529,36 @@ export const UserDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ o
              </div>
              <div>
                <h3 className="text-xl font-bold">Perpanjang Waktu Sewa</h3>
-               <p className="text-slate-500 text-sm mt-2">Masa sewa kamar {state.kamars.find(k => k.id == extendBookingTarget.kamar_id)?.nomor} saat ini akan berakhir pada <b>{extendBookingTarget.tgl_keluar}</b>. Tambah waktu 1 bulan?</p>
+               <p className="text-slate-500 text-sm mt-2">Masa sewa kamar {state.kamars.find(k => k.id == extendBookingTarget.kamar_id)?.nomor} saat ini akan berakhir pada <b>{extendBookingTarget.tgl_keluar}</b>.</p>
+             </div>
+
+             <div className="text-left space-y-2">
+               <label className="text-sm font-bold text-slate-700">Pilih Tambahan Durasi (Bulan)</label>
+               <select 
+                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                 value={extendDuration}
+                 onChange={(e) => setExtendDuration(Number(e.target.value))}
+               >
+                 {[1, 2, 3, 6, 12].map(m => (
+                   <option key={m} value={m}>{m} Bulan</option>
+                 ))}
+               </select>
              </div>
              
              <div className="bg-slate-50 p-4 rounded-xl text-left space-y-2 border border-slate-100">
                <div className="flex justify-between text-sm">
                  <span>Tambahan Durasi:</span>
-                 <span className="font-bold">+1 Bulan</span>
+                 <span className="font-bold">+{extendDuration} Bulan</span>
                </div>
                <div className="flex justify-between text-sm">
                  <span>Tanggal Keluar Baru:</span>
                  <span className="font-bold text-emerald-600">
-                   {format(addMonths(new Date(extendBookingTarget.tgl_keluar), 1), 'dd MMM yyyy')}
+                   {format(addMonths(new Date(extendBookingTarget.tgl_keluar), extendDuration), 'dd MMM yyyy')}
                  </span>
                </div>
                <div className="flex justify-between text-sm border-t border-slate-200 pt-2 mt-2">
                  <span>Total Biaya (Perpanjangan):</span>
-                 <span className="font-bold text-slate-900">{formatRupiah(state.kamars.find(k => k.id == extendBookingTarget.kamar_id)?.harga_per_bulan || 0)}</span>
+                 <span className="font-bold text-slate-900">{formatRupiah((state.kamars.find(k => k.id == extendBookingTarget.kamar_id)?.harga_dasar || 0) * extendDuration)}</span>
                </div>
              </div>
 
@@ -573,34 +566,28 @@ export const UserDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ o
                <Button variant="secondary" className="flex-1" onClick={() => setShowExtendModal(false)}>Batal</Button>
                <Button 
                  className="flex-1" 
-                 onClick={() => {
-                   // Simulasi Pembayaran & Perpanjangan Langsung
-                   const harga = state.kamars.find(k => k.id == extendBookingTarget.kamar_id)?.harga_per_bulan || 0;
-                   const newTglKeluar = format(addMonths(new Date(extendBookingTarget.tgl_keluar), 1), 'yyyy-MM-dd');
-                   dispatch({
-                     type: 'UPDATE_BOOKING',
-                     payload: {
-                       id: extendBookingTarget.id,
-                       data: { 
-                         tgl_keluar: newTglKeluar, 
-                         durasi_bulan: extendBookingTarget.durasi_bulan + 1,
-                         total: extendBookingTarget.total + harga 
-                       }
+                 onClick={async () => {
+                   try {
+                     const res = await fetch(`http://127.0.0.1:8000/api/v1/bookings/${extendBookingTarget.id}/extend`, {
+                       method: 'POST',
+                       headers: {
+                         'Content-Type': 'application/json',
+                         'Accept': 'application/json',
+                         'Authorization': `Bearer ${state.currentUser?.token || ''}`
+                       },
+                       body: JSON.stringify({ tambahan_bulan: extendDuration })
+                     });
+
+                     if (!res.ok) {
+                       throw new Error('Gagal memperpanjang sewa.');
                      }
-                   });
-                   dispatch({
-                     type: 'ADD_PAYMENT',
-                     payload: {
-                       id: `PAY-EXT-${Date.now()}`,
-                       booking_id: extendBookingTarget.id,
-                       jumlah: harga,
-                       metode: 'TRANSFER_BANK',
-                       status: 'SUCCESS',
-                       tanggal: new Date().toLocaleDateString('id-ID'),
-                     }
-                   });
-                   alert('Sewa berhasil diperpanjang 1 bulan!');
-                   setShowExtendModal(false);
+
+                     const data = await res.json();
+                     alert(data.message || 'Sewa berhasil diperpanjang 1 bulan!');
+                     setShowExtendModal(false);
+                   } catch (error: any) {
+                     alert(error.message || 'Terjadi kesalahan');
+                   }
                  }}
                >
                  Bayar & Perpanjang

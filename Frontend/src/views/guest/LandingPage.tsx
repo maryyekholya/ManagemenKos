@@ -48,23 +48,73 @@ export const LandingPage: React.FC<LandingPageProps> = ({ kamars, activeStrategy
   return (
     <div className="pt-20 bg-slate-50 min-h-screen">
       {/* Hero Section */}
-      <section className="px-6 md:px-12 py-16 md:py-32 max-w-7xl mx-auto flex flex-col justify-center min-h-[70vh]">
-        <div className="space-y-12">
-          <div className="label-upper">
-             Available Spaces
+      <section className="px-6 md:px-12 py-16 md:py-24 max-w-7xl mx-auto flex flex-col justify-center min-h-[70vh]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="space-y-12">
+            <div className="label-upper">
+               Available Spaces
+            </div>
+            <h1 className="display-text">
+              Experience a minimalist <br />
+              <span>approach to boarding living.</span>
+            </h1>
+            
+            <div className="flex flex-wrap gap-16 pt-4">
+               {stats.map(s => (
+                 <div key={s.label} className="metric-item flex flex-col gap-2">
+                    <div className="text-2xl font-medium text-slate-900">{s.value}</div>
+                    <div className="text-[13px] text-slate-500">{s.label}</div>
+                 </div>
+               ))}
+            </div>
           </div>
-          <h1 className="display-text">
-            Experience a minimalist <br />
-            <span>approach to boarding living.</span>
-          </h1>
-          
-          <div className="flex flex-wrap gap-16 pt-12">
-             {stats.map(s => (
-               <div key={s.label} className="metric-item flex flex-col gap-2">
-                  <div className="text-2xl font-medium text-slate-900">{s.value}</div>
-                  <div className="text-[13px] text-slate-500">{s.label}</div>
-               </div>
-             ))}
+
+          {/* Room Images Gallery */}
+          <div className="relative hidden lg:block">
+            <div className="relative w-full h-[480px]">
+              {/* Main large image */}
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+                className="absolute top-0 right-0 w-[75%] h-[340px] rounded-[2rem] overflow-hidden shadow-2xl shadow-slate-200 border border-slate-100"
+              >
+                <img 
+                  src="/images/room_hero.png" 
+                  alt="Modern minimalist room" 
+                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
+                />
+              </motion.div>
+              
+              {/* Secondary smaller image */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.4 }}
+                className="absolute bottom-0 left-0 w-[55%] h-[240px] rounded-[2rem] overflow-hidden shadow-2xl shadow-slate-300 border-4 border-white z-10"
+              >
+                <img 
+                  src="/images/room_secondary.png" 
+                  alt="Luxury boarding room" 
+                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
+                />
+              </motion.div>
+
+              {/* Decorative floating badge */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6, delay: 0.7 }}
+                className="absolute -bottom-2 right-8 bg-emerald-600 text-white px-6 py-3 rounded-2xl shadow-lg shadow-emerald-200 z-20"
+              >
+                <p className="text-[10px] uppercase tracking-widest font-bold opacity-80">Mulai dari</p>
+                <p className="text-lg font-bold font-mono">Rp 800.000</p>
+              </motion.div>
+
+              {/* Decorative circle */}
+              <div className="absolute -top-6 -right-6 w-24 h-24 bg-emerald-50 rounded-full -z-10" />
+              <div className="absolute bottom-20 right-[30%] w-16 h-16 bg-slate-100 rounded-full -z-10" />
+            </div>
           </div>
         </div>
       </section>

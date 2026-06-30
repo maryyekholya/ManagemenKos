@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AccountController;
 use App\Http\Controllers\ComplaintAttachmentController;
 use App\Http\Controllers\ComplaintController;
+use App\Http\Controllers\Admin\ReportController;
 
 Route::group(['prefix' => 'v1', 'as' => 'api.v1.'], function () {
 
@@ -46,6 +47,8 @@ Route::group(['prefix' => 'v1', 'as' => 'api.v1.'], function () {
         Route::put('/bookings/{id}/proceed', [BookingController::class, 'proceedBooking'])->name('bookings.proceed');
         Route::put('/bookings/{id}/pay', [BookingController::class, 'payBooking'])->name('bookings.pay');
         Route::put('/bookings/{id}/checkout', [BookingController::class, 'checkOutBooking'])->name('bookings.checkout');
+        Route::post('/bookings/{id}/extend', [BookingController::class, 'extendBooking'])->name('bookings.extend');
+        Route::get('/bookings/{id}/receipt/pdf', [BookingController::class, 'receiptPdf'])->name('bookings.receipt');
 
         // --- Complaint (User) ---
         Route::post('/complaints', [ComplaintController::class, 'store'])->name('complaints.store');
@@ -56,6 +59,7 @@ Route::group(['prefix' => 'v1', 'as' => 'api.v1.'], function () {
             
             Route::get('/admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
             Route::apiResource('/admin/users', AccountController::class);
+            Route::put('/admin/users/{id}/toggle-active', [AccountController::class, 'toggleActive'])->name('admin.users.toggle-active');
 
             // Admin Booking
             Route::put('/admin/bookings/{id}/approve', [BookingController::class, 'approveBooking'])->name('admin.bookings.approve');
@@ -72,6 +76,10 @@ Route::group(['prefix' => 'v1', 'as' => 'api.v1.'], function () {
             // Admin Complaints
             Route::get('/admin/complaints', [ComplaintController::class, 'index'])->name('admin.complaints.index');
             Route::put('/admin/complaints/{id}/respond', [ComplaintController::class, 'respond'])->name('admin.complaints.respond');
+
+            // Manager Reports (Builder Pattern)
+            Route::get('/manager/reports/financial', [ReportController::class, 'financial'])->name('manager.reports.financial');
+            Route::get('/manager/reports/export-csv', [ReportController::class, 'exportCsv'])->name('manager.reports.export-csv');
 
         });
     });

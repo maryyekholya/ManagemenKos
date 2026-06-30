@@ -21,7 +21,6 @@ import { useApp } from '../../App';
 import { Payment, User } from '../../types';
 import { formatRupiah, cn } from '../../lib/utils';
 import { Button, FormInput } from '../../components/shared/UI';
-import { ChatWidget } from '../../components/shared/ChatWidget';
 import { AdminKamar } from './AdminKamar';
 import { AdminBooking } from './AdminBooking';
 import { AdminKeluhan } from './AdminKeluhan';
@@ -535,7 +534,6 @@ export const AdminDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ 
     { id: 'kamar',       label: 'Manajemen Kamar',   icon: Bed },
     { id: 'booking',     label: 'Booking & Tenant',  icon: ClipboardList },
     { id: 'pembayaran',  label: 'Pembayaran',         icon: CreditCard },
-    { id: 'chat',        label: 'Chat Tenant',        icon: MessageSquare },
     { id: 'laporan',     label: 'Laporan Keuangan',  icon: PieChart },
     { id: 'pengaturan',  label: 'Pengaturan',         icon: Settings },
   ];
@@ -547,7 +545,6 @@ export const AdminDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ 
       case 'kamar':      return <AdminKamar />;
       case 'booking':    return <AdminBooking />;
       case 'pembayaran': return <AdminPembayaran />;
-      case 'chat':       return <AdminChat selectedUser={selectedChatUser} setSelectedUser={setSelectedChatUser} />;
       case 'laporan':    return <AdminLaporan />;
       case 'pengaturan': return <AdminSettings />;
       case 'overview':
@@ -583,11 +580,6 @@ export const AdminDashboard: React.FC<{ onNavigate: (v: string) => void }> = ({ 
       <main className="flex-1 overflow-y-auto p-12">
         {renderTab()}
       </main>
-
-      <ChatWidget
-        roomId={selectedChatUser?.id}
-        targetName={selectedChatUser?.name}
-      />
     </div>
   );
 };

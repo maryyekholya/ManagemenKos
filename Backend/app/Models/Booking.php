@@ -66,9 +66,10 @@ class Booking extends Model
     {
         $state = match($this->status) {
             'DIPESAN' => new DipesanState(),
-            'MENUNGGU PEMBAYARAN' => new MenungguPembayaranState(),
+            'MENUNGGU_PEMBAYARAN' => new MenungguPembayaranState(),
             'DIKONFIRMASI' => new DikonfirmasiState(),
             'DIHUNI' => new DihuniState(),
+            'SELESAI' => new \App\Services\Patterns\State\SelesaiState(),
             default => new TersediaState(), // TERSEDIA or null
         };
 

@@ -38,4 +38,13 @@ class DashboardController extends Controller
             ]
         ]);
     }
+
+    public function getAllBookings()
+    {
+        $bookings = Booking::with(['kamar', 'user'])->latest()->get();
+        return response()->json([
+            'success' => true,
+            'data' => $bookings
+        ]);
+    }
 }

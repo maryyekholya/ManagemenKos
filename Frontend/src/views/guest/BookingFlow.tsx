@@ -120,7 +120,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
 
       // 3. Pay Booking (API) untuk Cash / Transfer
       let backendStatus = 'MENUNGGU_PEMBAYARAN';
-      const paymentPayload = formData.paymentMethod === 'Cash' ? 'TRANSFER' : 'TRANSFER'; // Use TRANSFER as fallback for Cash
+      const paymentPayload = formData.paymentMethod === 'Cash' ? 'CASH' : 'TRANSFER'; // Fix Cash mapping
       const resPay = await fetch(`http://127.0.0.1:8000/api/v1/bookings/${dbBookingId}/pay`, {
         method: 'PUT',
         headers: { 
@@ -129,7 +129,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
           'Authorization': `Bearer ${state.currentUser?.token || ''}`
         },
         body: JSON.stringify({
-          metode_pembayaran: formData.paymentMethod === 'Cash' ? 'TRANSFER' : formData.paymentMethod.toUpperCase().replace(' ', '_')
+          metode_pembayaran: formData.paymentMethod === 'Cash' ? 'CASH' : formData.paymentMethod.toUpperCase().replace(' ', '_')
         })
       });
       if (resPay.ok) {
@@ -282,15 +282,17 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                              <Calendar className="w-5 h-5" />
                            </div>
-                           <input 
-                             type="number"
-                             min="1"
-                             className="w-full pl-11 pr-16 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-sm"
+                           <select 
+                             className="w-full pl-11 pr-16 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-sm appearance-none"
                              value={formData.duration}
                              onChange={e => setFormData({...formData, duration: Number(e.target.value)})}
-                           />
-                           <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs uppercase tracking-wider">
-                             Bulan
+                           >
+                             {[...Array(12)].map((_, i) => (
+                               <option key={i+1} value={i+1}>{i+1} Bulan</option>
+                             ))}
+                           </select>
+                           <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                             <ChevronRight className="w-4 h-4 rotate-90" />
                            </div>
                          </div>
                        </div>

@@ -19,9 +19,9 @@ return new class extends Migration
             $table->date('tgl_masuk');
             $table->date('tgl_keluar');
             $table->tinyInteger('durasi_bulan')->default(1);
-            $table->enum('status', ['DIPESAN', 'DIKONFIRMASI', 'DIHUNI', 'SELESAI', 'DIBATALKAN'])->default('DIPESAN');
+            $table->enum('status', ['DIPESAN', 'MENUNGGU PEMBAYARAN', 'MENUNGGU_PEMBAYARAN', 'DIKONFIRMASI', 'DIHUNI', 'SELESAI', 'DIBATALKAN'])->default('DIPESAN');
             $table->bigInteger('total');
-            $table->enum('metode_bayar', ['Transfer', 'QRIS', 'Cash'])->default('QRIS');
+            $table->enum('metode_bayar', ['TRANSFER', 'QRIS', 'CASH', 'DOMPET_DIGITAL'])->default('QRIS');
             $table->text('catatan')->nullable();
             $table->timestamps();
         });

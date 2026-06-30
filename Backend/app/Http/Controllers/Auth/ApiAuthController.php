@@ -38,6 +38,15 @@ class ApiAuthController extends Controller
         if (Auth::attempt($request->only('email', 'password'))) {
             /** @var \App\Models\User $user */
             $user = Auth::user();
+
+            if (!$user->is_active) {
+                Auth::logout();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Akun Anda telah dinonaktifkan. Silakan hubungi admin.'
+                ], 403);
+            }
+
             $token = $user->createToken('API Token')->plainTextToken;
 
             return response()->json([
