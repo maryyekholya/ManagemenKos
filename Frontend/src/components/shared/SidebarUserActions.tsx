@@ -188,8 +188,12 @@ export const SidebarUserActions: React.FC<{ onNavigate: (v: string) => void }> =
           className="flex items-center gap-3 p-1.5 pl-4 bg-slate-50 border border-slate-200 rounded-full hover:shadow-sm transition-all"
         >
           <span className="text-sm font-bold text-slate-700">{user.name.split(' ')[0]}</span>
-          <div className="w-10 h-10 bg-emerald-100 text-emerald-700 flex items-center justify-center rounded-full font-bold text-base shadow-inner">
-            {user.name.charAt(0)}
+          <div className="w-10 h-10 bg-emerald-100 text-emerald-700 flex items-center justify-center rounded-full font-bold text-base shadow-inner overflow-hidden">
+            {user.avatar ? (
+              <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            ) : (
+              user.name.charAt(0)
+            )}
           </div>
         </button>
 

@@ -32,7 +32,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
     paymentMethod: 'Transfer' as PaymentMethod
   });
 
-  const finalPrice = PricingStrategy.calculate(kamar.harga_dasar, strategy);
+  const finalPrice = kamar.harga_aktif || kamar.harga_dasar;
   const totalAmount = finalPrice * formData.duration;
   const totalOverall = finalPrice * formData.duration;
 
@@ -55,135 +55,143 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
   const handleSubmit = async () => {
     setIsProcessing(true);
 
-    const bookingId = generateId('BK');
-    const newBooking: Booking = {
-      id: bookingId,
-      kamar_id: kamar.id,
-      user_id: state.currentUser?.id || generateId('USR'),
-      user_name: formData.name,
-      user_phone: formData.phone,
-      tgl_masuk: formData.startDate,
-      tgl_keluar: format(addMonths(new Date(formData.startDate), formData.duration), 'yyyy-MM-dd'),
-      durasi_bulan: formData.duration,
-      status: 'MENUNGGU_PEMBAYARAN',
-      total: totalOverall,
-      metode_bayar: formData.paymentMethod,
-      created_at: new Date().toISOString(),
-      catatan: formData.catatan,
-      stateHistory: [{
-        state: 'MENUNGGU_PEMBAYARAN',
-        timestamp: new Date().toISOString(),
-        actor: formData.name,
-        note: 'Pemesanan baru dibuat'
-      }]
-    };
+    try {
+      // 1. Create Booking (API)
+      const resCreate = await fetch('http://127.0.0.1:8000/api/v1/bookings', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${state.currentUser?.token || ''}`
+        },
+        body: JSON.stringify({
+          kamar_id: kamar.id,
+          durasi_bulan: formData.duration,
+        })
+      });
+      
+      let dbBookingId = generateId('BK');
+      if (resCreate.ok) {
+        const createData = await resCreate.json();
+        dbBookingId = createData.data.id.toString();
+      } else {
+        console.warn('Backend create booking failed, fallback to local', await resCreate.text());
+      }
 
-    if (formData.paymentMethod === 'QRIS') {
-      setCurrentBooking(newBooking);
-      setShowQR(true);
-      setIsProcessing(false);
-      return;
-    }
+      // 2. Proceed Booking (API)
+      const resProceed = await fetch(`http://127.0.0.1:8000/api/v1/bookings/${dbBookingId}/proceed`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${state.currentUser?.token || ''}`
+        }
+      });
+      if (!resProceed.ok) console.warn('Backend proceed booking failed');
 
-    if (formData.paymentMethod === 'Cash') {
-      const updatedBooking = { ...newBooking, status: 'MENUNGGU_PEMBAYARAN' as any, paymentClaimTimestamp: new Date().toISOString() };
-      const managerNotif = {
-        id: `N-REQ-${Date.now()}`,
-        type: 'PAYMENT_VERIFICATION_REQUEST',
-        recipient: 'manager', 
-        title: 'Verifikasi Pembayaran Tunai',
-        message: `${formData.name} telah memilih pembayaran Tunai untuk Kamar ${kamar.nomor}.`,
-        priority: 'HIGH',
-        action_required: true,
-        actions: ['KONFIRMASI', 'TOLAK'],
-        booking_id: newBooking.id,
-        tenant_name: formData.name,
-        kamar_nomor: kamar.nomor,
-        amount: totalAmount,
-        method: 'Cash',
+      const newBooking: Booking = {
+        id: dbBookingId,
+        kamar_id: kamar.id,
+        user_id: state.currentUser?.id || generateId('USR'),
+        user_name: formData.name,
+        user_phone: formData.phone,
+        tgl_masuk: formData.startDate,
+        tgl_keluar: format(addMonths(new Date(formData.startDate), formData.duration), 'yyyy-MM-dd'),
+        durasi_bulan: formData.duration,
+        status: 'MENUNGGU_PEMBAYARAN',
+        total: totalOverall,
+        metode_bayar: formData.paymentMethod,
         created_at: new Date().toISOString(),
-        read: false
+        catatan: formData.catatan,
+        stateHistory: [{
+          state: 'MENUNGGU_PEMBAYARAN',
+          timestamp: new Date().toISOString(),
+          actor: formData.name,
+          note: 'Pemesanan baru dibuat via API'
+        }]
       };
+
+      if (formData.paymentMethod === 'QRIS') {
+        setCurrentBooking(newBooking);
+        setShowQR(true);
+        setIsProcessing(false);
+        return;
+      }
+
+      // 3. Pay Booking (API) untuk Cash / Transfer
+      let backendStatus = 'MENUNGGU_PEMBAYARAN';
+      const paymentPayload = formData.paymentMethod === 'Cash' ? 'CASH' : 'TRANSFER'; // Fix Cash mapping
+      const resPay = await fetch(`http://127.0.0.1:8000/api/v1/bookings/${dbBookingId}/pay`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${state.currentUser?.token || ''}`
+        },
+        body: JSON.stringify({
+          metode_pembayaran: formData.paymentMethod === 'Cash' ? 'CASH' : formData.paymentMethod.toUpperCase().replace(' ', '_')
+        })
+      });
+      if (resPay.ok) {
+        const payData = await resPay.json();
+        // Since we modified backend to auto approve, status might be DIHUNI
+        backendStatus = payData.data.status;
+      } else {
+        console.warn('Backend pay booking failed', await resPay.text());
+      }
+
+      const updatedBooking = { ...newBooking, status: backendStatus as any, paymentClaimTimestamp: new Date().toISOString() };
       dispatch({ type: 'ADD_BOOKING', payload: updatedBooking });
-      dispatch({ type: 'ADD_NOTIFICATION', payload: managerNotif });
-      dispatch({ type: 'UPDATE_KAMAR', payload: { id: kamar.id, data: { status: 'DIPESAN' } } });
+      dispatch({ type: 'UPDATE_KAMAR', payload: { id: kamar.id, data: { status: backendStatus === 'DIHUNI' ? 'DIHUNI' : 'DIPESAN' } } });
       
       setPaymentResult({
-         order_id: bookingId,
-         payment_type: 'Cash (Tunai)',
+         order_id: dbBookingId,
+         payment_type: formData.paymentMethod,
          transaction_status: 'pending',
          gross_amount: totalAmount
       });
       setStep(4);
+      
+    } catch (err) {
+      console.error('API Error during booking', err);
+      alert('Terjadi kesalahan koneksi saat memesan kamar.');
+    } finally {
       setIsProcessing(false);
-      return;
     }
-
-    // Bypass Midtrans for Transfer (Temporary)
-    const updatedBooking = { ...newBooking, status: 'MENUNGGU_PEMBAYARAN' as any };
-    const adminNotif = {
-      id: `N-REQ-${Date.now()}`,
-      type: 'PAYMENT_VERIFICATION_REQUEST',
-      recipient: 'admin',
-      title: 'Verifikasi Pembayaran Transfer',
-      message: `${formData.name} telah melakukan pembayaran Transfer untuk Kamar ${kamar.nomor}.`,
-      priority: 'HIGH',
-      action_required: true,
-      actions: ['KONFIRMASI', 'TOLAK'],
-      booking_id: newBooking.id,
-      tenant_name: formData.name,
-      kamar_nomor: kamar.nomor,
-      amount: totalAmount,
-      method: 'Transfer',
-      created_at: new Date().toISOString(),
-      read: false
-    };
-    dispatch({ type: 'ADD_BOOKING', payload: updatedBooking });
-    dispatch({ type: 'ADD_NOTIFICATION', payload: adminNotif });
-    dispatch({ type: 'UPDATE_KAMAR', payload: { id: kamar.id, data: { status: 'DIPESAN' } } });
-    
-    setPaymentResult({
-       order_id: bookingId,
-       payment_type: 'Transfer Bank',
-       transaction_status: 'pending',
-       gross_amount: totalAmount
-    });
-    setStep(4);
-    setIsProcessing(false);
   };
 
-  const handleQRClaimed = () => {
+  const handleQRClaimed = async () => {
     if (!currentBooking) return;
 
-    // Part 2 & 3: Trigger simulation
+    let backendStatus = 'MENUNGGU_PEMBAYARAN';
+    try {
+      const resPay = await fetch(`http://127.0.0.1:8000/api/v1/bookings/${currentBooking.id}/pay`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${state.currentUser?.token || ''}`
+        },
+        body: JSON.stringify({
+          metode_pembayaran: 'QRIS'
+        })
+      });
+      if (resPay.ok) {
+        const payData = await resPay.json();
+        backendStatus = payData.data.status;
+      }
+    } catch (err) {
+      console.error('API Error during QRIS claim', err);
+    }
+
     const updatedBooking = {
       ...currentBooking,
-      status: 'MENUNGGU_PEMBAYARAN' as any, // It's already this, but we track the claim
+      status: backendStatus as any,
       paymentClaimTimestamp: new Date().toISOString()
     };
 
-    // Add notification for admin
-    const adminNotif = {
-      id: `N-REQ-${Date.now()}`,
-      type: 'PAYMENT_VERIFICATION_REQUEST',
-      recipient: 'admin',
-      title: 'Verifikasi Pembayaran QRIS',
-      message: `${formData.name} telah melakukan pembayaran QRIS untuk Kamar ${kamar.nomor}.`,
-      priority: 'HIGH',
-      action_required: true,
-      actions: ['KONFIRMASI', 'TOLAK'],
-      booking_id: currentBooking.id,
-      tenant_name: formData.name,
-      kamar_nomor: kamar.nomor,
-      amount: totalAmount,
-      method: 'QRIS',
-      created_at: new Date().toISOString(),
-      read: false
-    };
-
     dispatch({ type: 'ADD_BOOKING', payload: updatedBooking });
-    dispatch({ type: 'ADD_NOTIFICATION', payload: adminNotif });
-    dispatch({ type: 'UPDATE_KAMAR', payload: { id: kamar.id, data: { status: 'DIPESAN' } } });
+    dispatch({ type: 'UPDATE_KAMAR', payload: { id: kamar.id, data: { status: backendStatus === 'DIHUNI' ? 'DIHUNI' : 'DIPESAN' } } });
     
     // Close modal and flow
     setShowQR(false);
@@ -261,18 +269,54 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
                     <FormInput label="Nama Lengkap" placeholder="Masukkan nama sesuai KTP" icon={<User className="w-5 h-5" />} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                        <FormInput label="Email" type="email" placeholder="email@gmail.com" icon={<Mail className="w-5 h-5" />} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-                       <FormInput label="No. Telepon" placeholder="0812XXXXXXXX" icon={<Phone className="w-5 h-5" />} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                       <FormInput label="No. Telepon" placeholder="Contoh: 081234567890" icon={<Phone className="w-5 h-5" />} value={formData.phone} onChange={e => {
+                          const val = e.target.value.replace(/[^0-9+]/g, '');
+                          setFormData({...formData, phone: val});
+                       }} />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                        <FormInput label="Tanggal Masuk" type="date" icon={<Calendar className="w-5 h-5" />} value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} />
-                       <FormInput label="Durasi Sewa" type="select" value={formData.duration.toString()} onChange={e => setFormData({...formData, duration: Number(e.target.value)})} className="appearance-none" />
+                       <div className="space-y-2 w-full">
+                         <label className="label-upper block ml-1">Durasi Sewa</label>
+                         <div className="relative">
+                           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                             <Calendar className="w-5 h-5" />
+                           </div>
+                           <select 
+                             className="w-full pl-11 pr-16 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-sm appearance-none"
+                             value={formData.duration}
+                             onChange={e => setFormData({...formData, duration: Number(e.target.value)})}
+                           >
+                             {[...Array(12)].map((_, i) => (
+                               <option key={i+1} value={i+1}>{i+1} Bulan</option>
+                             ))}
+                           </select>
+                           <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                             <ChevronRight className="w-4 h-4 rotate-90" />
+                           </div>
+                         </div>
+                       </div>
                     </div>
                     <FormInput label="Catatan Khusus (Opsional)" type="textarea" placeholder="Contoh: Butuh meja belajar tambahan..." value={formData.catatan} onChange={e => setFormData({...formData, catatan: e.target.value})} />
                   </div>
                   <Button 
                     className="w-full py-4 text-lg mt-4" 
-                    disabled={!formData.name || !formData.email || !formData.phone || (state.currentUser && !state.currentUser.isVerified)} 
-                    onClick={handleNext}
+                    onClick={() => {
+                       if (!formData.name || !formData.email || !formData.phone || !formData.startDate || !formData.duration) {
+                          alert('Mohon isi semua data diri yang wajib diisi!');
+                          return;
+                       }
+                       const phoneRegex = /^(\+62|62|0)8[1-9][0-9]{6,10}$/;
+                       if (!phoneRegex.test(formData.phone)) {
+                          alert('Format nomor telepon tidak valid. Gunakan format Indonesia (contoh: 0812... atau +62812...)');
+                          return;
+                       }
+                       if (state.currentUser && !state.currentUser.isVerified) {
+                          alert('Harap verifikasi email Anda terlebih dahulu.');
+                          return;
+                       }
+                       handleNext();
+                    }}
                   >
                      Lanjutkan ke Pembayaran <ChevronRight className="w-5 h-5" />
                   </Button>
@@ -416,17 +460,64 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ kamar, strategy, onCom
                   <div className="pt-4">
                     <Button 
                       className="w-full py-4 text-lg shadow-xl shadow-emerald-100" 
-                      onClick={() => {
+                      onClick={async () => {
+                        let finalStatus = paymentResult.transaction_status === 'settlement' || paymentResult.transaction_status === 'capture' ? 'DIKONFIRMASI' : 'MENUNGGU_PEMBAYARAN';
+                        let finalId = paymentResult.order_id;
+                        
+                        if (state.currentUser?.token) {
+                          try {
+                            const res = await fetch('http://127.0.0.1:8000/api/v1/bookings', {
+                              method: 'POST',
+                              headers: {
+                                'Authorization': `Bearer ${state.currentUser.token}`,
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                              },
+                              body: JSON.stringify({
+                                kamar_id: kamar.id,
+                                durasi_bulan: formData.duration
+                              })
+                            });
+                            const json = await res.json();
+                            if (json.success && json.data) {
+                              finalId = json.data.id;
+                              
+                              // Proceed
+                              await fetch(`http://127.0.0.1:8000/api/v1/bookings/${finalId}/proceed`, {
+                                method: 'PUT',
+                                headers: { 'Authorization': `Bearer ${state.currentUser.token}`, 'Accept': 'application/json' }
+                              });
+
+                              // If Paid
+                              if (finalStatus === 'DIKONFIRMASI') {
+                                await fetch(`http://127.0.0.1:8000/api/v1/bookings/${finalId}/pay`, {
+                                  method: 'PUT',
+                                  headers: {
+                                    'Authorization': `Bearer ${state.currentUser.token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                  },
+                                  body: JSON.stringify({
+                                    metode_bayar: formData.paymentMethod
+                                  })
+                                });
+                              }
+                            }
+                          } catch (e) {
+                            console.error('Failed to save booking to backend', e);
+                          }
+                        }
+
                         const booking: Booking = {
-                          id: paymentResult.order_id,
+                          id: finalId,
                           kamar_id: kamar.id,
-                          user_id: generateId('USR'),
+                          user_id: state.currentUser?.id || generateId('USR'),
                           user_name: formData.name,
                           user_phone: formData.phone,
                           tgl_masuk: formData.startDate,
                           tgl_keluar: format(addMonths(new Date(formData.startDate), formData.duration), 'yyyy-MM-dd'),
                           durasi_bulan: formData.duration,
-                          status: paymentResult.transaction_status === 'settlement' || paymentResult.transaction_status === 'capture' ? 'DIKONFIRMASI' : 'MENUNGGU_PEMBAYARAN',
+                          status: finalStatus as any,
                           total: totalOverall,
                           metode_bayar: formData.paymentMethod,
                           created_at: new Date().toISOString(),

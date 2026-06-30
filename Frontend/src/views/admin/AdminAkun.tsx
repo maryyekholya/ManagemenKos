@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../App';
 import { User, Role } from '../../types';
 import { Button, FormInput, Modal } from '../../components/shared/UI';
-import { Plus, Edit2, Trash2, Shield, User as UserIcon, Search } from 'lucide-react';
+import { Plus, Edit2, PowerOff, Shield, User as UserIcon, Search } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface AdminAkunProps {
@@ -30,7 +30,12 @@ export const AdminAkun: React.FC<AdminAkunProps> = ({ onNavigateToCreate }) => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/v1/admin/users');
+      const response = await fetch('http://127.0.0.1:8000/api/v1/admin/users', {
+        headers: {
+          'Authorization': `Bearer ${state.currentUser?.token}`,
+          'Accept': 'application/json'
+        }
+      });
       const json = await response.json();
       if (json.success) {
         setUsers(json.data);
@@ -121,47 +126,36 @@ export const AdminAkun: React.FC<AdminAkunProps> = ({ onNavigateToCreate }) => {
     }
   };
 
-  const handleDelete = async (user: User) => {
+  const handleToggleActive = async (user: User) => {
     if (user.id === state.currentUser?.id) {
-      alert('Anda tidak dapat menghapus akun Anda sendiri.');
+      alert('Anda tidak dapat mengubah status akun Anda sendiri.');
       return;
     }
 
-    const hasData = state.bookings.some(b => b.user_id === user.id) || 
-                    state.keluhans.some(k => k.user_name === user.name);
-
-    if (hasData) {
-      if (!window.confirm(`Pengguna ${user.name} memiliki riwayat data. Akun hanya akan dinonaktifkan. Lanjutkan?`)) return;
-      
-      try {
-        await fetch(`http://127.0.0.1:8000/api/v1/admin/users/${user.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify({ ...user, isVerified: false })
-        });
-      } catch (err) {}
-      
-      dispatch({ type: 'UPDATE_USER', payload: { id: user.id, data: { isVerified: false } } });
-      alert('Akun berhasil dinonaktifkan.');
-      return;
-    }
-
-    if (!window.confirm(`Apakah Anda yakin ingin menghapus pengguna ${user.name}?`)) {
+    if (!window.confirm(`Apakah Anda yakin ingin mengubah status pengguna ${user.name}?`)) {
       return;
     }
 
     try {
-      await fetch(`http://127.0.0.1:8000/api/v1/admin/users/${user.id}`, {
-        method: 'DELETE',
-        headers: { 'Accept': 'application/json' }
+      const res = await fetch(`http://127.0.0.1:8000/api/v1/admin/users/${user.id}/toggle-active`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${state.currentUser?.token}`,
+          'Accept': 'application/json' 
+        }
       });
+      const data = await res.json();
+      if (data.success) {
+        dispatch({ type: 'UPDATE_USER', payload: { id: user.id, data: { is_active: !user.is_active } } });
+        fetchUsers();
+        alert(data.message || 'Status akun berhasil diubah.');
+      } else {
+        alert(data.message || 'Gagal mengubah status akun.');
+      }
     } catch (err) {
       console.error(err);
+      alert('Terjadi kesalahan jaringan saat mengubah status.');
     }
-
-    dispatch({ type: 'DELETE_USER', payload: user.id });
-    setUsers(prev => prev.filter(u => u.id !== user.id));
-    alert('Akun berhasil dihapus.');
   };
 
   const filteredUsers = users.filter(u => 
@@ -245,9 +239,9 @@ export const AdminAkun: React.FC<AdminAkunProps> = ({ onNavigateToCreate }) => {
                     <td className="px-6 py-4">
                       <span className={cn(
                         "px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-widest",
-                        user.isVerified !== false ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                        user.is_active !== false ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
                       )}>
-                        {user.isVerified !== false ? 'Terverifikasi' : 'Pending'}
+                        {user.is_active !== false ? 'Aktif' : 'Nonaktif'}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -260,11 +254,11 @@ export const AdminAkun: React.FC<AdminAkunProps> = ({ onNavigateToCreate }) => {
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => handleDelete(user)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Hapus Pengguna"
+                          onClick={() => handleToggleActive(user)}
+                          className={cn("p-2 rounded-lg transition-colors", user.is_active !== false ? "text-slate-400 hover:text-red-600 hover:bg-red-50" : "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50")}
+                          title={user.is_active !== false ? "Nonaktifkan Pengguna" : "Aktifkan Pengguna"}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <PowerOff className="w-4 h-4" />
                         </button>
                       </div>
                     </td>

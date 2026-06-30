@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Bed, Users, Wifi, Wind, Tv, Coffee, User, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { Kamar, PricingStrategyType } from '../../types';
-import { PricingStrategy } from '../../lib/patterns';
 import { formatRupiah, cn } from '../../lib/utils';
 import { StatusBadge, Button } from './UI';
 
@@ -11,6 +10,7 @@ interface KamarCardProps {
   onBook?: (kamar: Kamar) => void;
   onSelect?: (kamar: Kamar) => void;
   adminActions?: React.ReactNode;
+  hasActiveBooking?: boolean;
 }
 
 const facilityIcons: Record<string, any> = {
@@ -21,10 +21,10 @@ const facilityIcons: Record<string, any> = {
   'Kamar Mandi Dalam': User,
 };
 
-export const KamarCard: React.FC<KamarCardProps> = ({ kamar, strategy, onBook, onSelect, adminActions }) => {
+export const KamarCard: React.FC<KamarCardProps> = ({ kamar, strategy, onBook, onSelect, adminActions, hasActiveBooking }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const finalPrice = PricingStrategy.calculate(kamar.harga_dasar, strategy);
-  const isDiscounted = strategy !== 'Normal';
+  const finalPrice = kamar.harga_aktif || kamar.harga_dasar;
+  const isDiscounted = finalPrice !== kamar.harga_dasar;
 
   return (
     <div className="group bg-white border border-slate-200 card-hover flex flex-col h-full">
@@ -62,7 +62,7 @@ export const KamarCard: React.FC<KamarCardProps> = ({ kamar, strategy, onBook, o
              )}
              <p className="text-xl font-medium text-slate-900">{formatRupiah(finalPrice)}</p>
              {isDiscounted && (
-               <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mt-1">{PricingStrategy.getLabel(strategy)}</p>
+               <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mt-1">{strategy !== 'Normal' ? strategy + ' Rate' : ''}</p>
              )}
           </div>
         </div>
@@ -92,8 +92,11 @@ export const KamarCard: React.FC<KamarCardProps> = ({ kamar, strategy, onBook, o
             {isExpanded ? 'Sembunyikan' : 'View Details'} {isExpanded ? <ChevronUp className="w-4 h-4 ml-2 inline" /> : <ChevronDown className="w-4 h-4 ml-2 inline" />}
           </Button>
           {kamar.status === 'TERSEDIA' && onBook && (
-            <Button className="flex-1 py-3" onClick={() => onBook(kamar)}>
-              Reserve
+            <Button 
+              className={cn("flex-1 py-3", hasActiveBooking && "opacity-50 cursor-not-allowed")} 
+              onClick={() => onBook(kamar)}
+            >
+              {hasActiveBooking ? 'Limit Tercapai' : 'Reserve'}
             </Button>
           )}
         </div>

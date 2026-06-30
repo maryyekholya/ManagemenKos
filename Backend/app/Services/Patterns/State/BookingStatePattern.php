@@ -156,7 +156,7 @@ class MenungguPembayaranState implements BookingState
 
     public function getStatus(): string
     {
-        return 'MENUNGGU PEMBAYARAN';
+        return 'MENUNGGU_PEMBAYARAN';
     }
 }
 
@@ -203,11 +203,30 @@ class DihuniState implements BookingState
 
     public function checkOut(BookingContext $context): void
     {
-        $context->setState(new TersediaState());
+        $context->setState(new SelesaiState());
     }
 
     public function getStatus(): string
     {
         return 'DIHUNI';
+    }
+}
+
+/**
+ * [STATE 6] SELESAI
+ */
+class SelesaiState implements BookingState
+{
+    public function pesan(BookingContext $context): void { throw new Exception("Booking sudah selesai."); }
+    public function konfirmasiPesanan(BookingContext $context): void { throw new Exception("Booking sudah selesai."); }
+    public function batal(BookingContext $context): void { throw new Exception("Booking sudah selesai."); }
+    public function bayar(BookingContext $context): void { throw new Exception("Booking sudah selesai."); }
+    public function approve(BookingContext $context): void { throw new Exception("Booking sudah selesai."); }
+    public function tolak(BookingContext $context): void { throw new Exception("Booking sudah selesai."); }
+    public function checkOut(BookingContext $context): void { throw new Exception("Booking sudah selesai."); }
+
+    public function getStatus(): string
+    {
+        return 'SELESAI';
     }
 }

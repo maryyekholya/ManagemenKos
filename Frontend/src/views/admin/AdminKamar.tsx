@@ -7,7 +7,7 @@
  */
 
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, AlertTriangle, CheckCircle2, DoorOpen } from 'lucide-react';
 import { Kamar, RoomType } from '../../types';
 import { useKamarController } from '../../controllers/useKamarController';
 import {
@@ -54,6 +54,9 @@ const KamarFormInline: React.FC<{
   );
   const [errors, setErrors] = useState<string[]>([]);
   const [success, setSuccess] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const { state } = useApp();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     setForm(
@@ -83,6 +86,45 @@ const KamarFormInline: React.FC<{
         ? prev.fasilitas.filter((x) => x !== f)
         : [...prev.fasilitas, f],
     }));
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors(['Ukuran file tidak boleh lebih dari 5MB']);
+      return;
+    }
+
+    setIsUploading(true);
+    setErrors([]);
+    
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/v1/admin/rooms/upload-image', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${state.currentUser?.token}`,
+          'Accept': 'application/json'
+        },
+        body: formData
+      });
+      const data = await res.json();
+      
+      if (data.success && data.data?.url) {
+        setForm(p => ({ ...p, foto_url: data.data.url }));
+      } else {
+        setErrors([data.message || 'Gagal mengupload gambar']);
+      }
+    } catch (err) {
+      setErrors(['Terjadi kesalahan koneksi saat upload']);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = () => {
@@ -203,14 +245,43 @@ const KamarFormInline: React.FC<{
               setForm((p) => ({ ...p, kapasitas: Number(e.target.value) }))
             }
           />
-          <FormInput
-            label="URL Foto"
-            placeholder="https://..."
-            value={form.foto_url}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, foto_url: e.target.value }))
-            }
-          />
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+              URL Foto Kamar
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="https://..."
+                value={form.foto_url}
+                onChange={(e) => setForm((p) => ({ ...p, foto_url: e.target.value }))}
+                className="flex-1 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              />
+              <div className="relative">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={handleFileUpload}
+                  disabled={isUploading}
+                  className="absolute inset-0 z-10 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                />
+                <Button 
+                  type="button" 
+                  variant="secondary" 
+                  className="h-full px-4 border-slate-200"
+                  disabled={isUploading}
+                >
+                  {isUploading ? '...' : 'Upload'}
+                </Button>
+              </div>
+            </div>
+            {form.foto_url && (
+              <div className="mt-3 relative w-32 h-20 rounded-lg overflow-hidden border border-slate-200">
+                <img src={form.foto_url} alt="Preview" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Fasilitas */}
@@ -352,6 +423,30 @@ export const AdminKamar: React.FC = () => {
     }
   };
 
+  const handleEvict = async (k: Kamar) => {
+    if (!window.confirm(`Yakin ingin mengeluarkan tenant dari Kamar ${k.nomor}?`)) return;
+
+    try {
+      const token = localStorage.getItem('nestin_token');
+      const res = await fetch(`http://127.0.0.1:8000/api/v1/admin/rooms/${k.id}/evict`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Tenant berhasil dikeluarkan.');
+        updateKamar(k.id, { status: 'TERSEDIA' });
+      } else {
+        alert(data.message || 'Gagal mengeluarkan tenant.');
+      }
+    } catch (err) {
+      alert('Koneksi error');
+    }
+  };
+
   return (
     <div className="space-y-8">
       {isFormOpen ? (
@@ -432,6 +527,15 @@ export const AdminKamar: React.FC = () => {
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
+                        {k.status === 'DIHUNI' && (
+                          <button
+                            onClick={() => handleEvict(k)}
+                            title="Kosongkan Kamar (Keluarkan Tenant)"
+                            className="p-2.5 bg-white text-orange-500 rounded-full hover:bg-orange-50 transition-colors shadow-sm"
+                          >
+                            <DoorOpen className="w-4 h-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDeleteClick(k)}
                           title="Hapus Kamar"

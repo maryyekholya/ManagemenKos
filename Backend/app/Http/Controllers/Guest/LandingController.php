@@ -37,4 +37,9 @@ class LandingController extends Controller
 
         return view('guest.landing', compact('kamars', 'stats', 'tipe', 'search'));
     }
+
+    public function statusChecker()
+    {
+        return view('guest.status-checker');
+    }
 }

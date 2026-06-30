@@ -23,6 +23,7 @@ export interface Kamar {
   kapasitas: number;
   deskripsi: string;
   description: string; // Added more detailed description field
+  harga_aktif?: number; // Fetched from backend pricing strategy
 }
 
 export interface Booking {
@@ -109,6 +110,7 @@ export interface User {
   avatar?: string;
   phone?: string;
   address?: string;
+  token?: string;
 }
 
 export interface AppConfig {
