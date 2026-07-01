@@ -34,7 +34,7 @@ type KamarFormData = Omit<Kamar, 'id'>;
 const KamarFormInline: React.FC<{
   onClose: () => void;
   editingKamar: Kamar | null;
-  onSave: (data: KamarFormData) => { success: boolean; errors: any[] };
+  onSave: (data: KamarFormData) => Promise<{ success: boolean; errors: any[] }> | { success: boolean; errors: any[] };
 }> = ({ onClose, editingKamar, onSave }) => {
   const [form, setForm] = useState<KamarFormData>(
     editingKamar
@@ -55,6 +55,7 @@ const KamarFormInline: React.FC<{
   const [errors, setErrors] = useState<string[]>([]);
   const [success, setSuccess] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { state } = useApp();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -127,8 +128,10 @@ const KamarFormInline: React.FC<{
     }
   };
 
-  const handleSubmit = () => {
-    const result = onSave(form);
+  const handleSubmit = async () => {
+    setIsSaving(true);
+    const result = await onSave(form);
+    setIsSaving(false);
     if (!result.success) {
       setErrors(result.errors.map((e: any) => e.message));
     } else {
@@ -331,14 +334,15 @@ const KamarFormInline: React.FC<{
 
         {/* Actions */}
         <div className="flex gap-4 pt-6 border-t border-slate-100">
-          <Button variant="secondary" className="flex-1 py-4" onClick={onClose}>
+          <Button variant="secondary" className="flex-1 py-4" onClick={onClose} disabled={isSaving}>
             Batal
           </Button>
           <Button
             className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-700"
             onClick={handleSubmit}
+            disabled={isSaving}
           >
-            {editingKamar ? 'Simpan Perubahan' : 'Tambah Kamar'}
+            {isSaving ? 'Menyimpan...' : (editingKamar ? 'Simpan Perubahan' : 'Tambah Kamar')}
           </Button>
         </div>
       </div>
@@ -407,17 +411,17 @@ export const AdminKamar: React.FC = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleSave = (data: Omit<Kamar, 'id'>) => {
+  const handleSave = async (data: Omit<Kamar, 'id'>) => {
     if (editingKamar) {
-      return updateKamar(editingKamar.id, data);
+      return await updateKamar(editingKamar.id, data);
     } else {
-      return addKamar(data);
+      return await addKamar(data);
     }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (deletingKamar) {
-      deleteKamar(deletingKamar.id);
+      await deleteKamar(deletingKamar.id);
       setIsDeleteOpen(false);
       setDeletingKamar(null);
     }

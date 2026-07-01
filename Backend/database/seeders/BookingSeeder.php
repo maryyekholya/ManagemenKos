@@ -23,32 +23,7 @@ class BookingSeeder extends Seeder
             return;
         }
 
-        $bookings = [
-            [
-                'kamar_id' => $kamarA1->id,
-                'user_id' => $budi->id,
-                'user_name' => $budi->name,
-                'tgl_masuk' => Carbon::now()->subDays(10)->toDateString(),
-                'tgl_keluar' => Carbon::now()->addMonths(3)->toDateString(),
-                'durasi_bulan' => 3,
-                'status' => 'DIHUNI',
-                'total' => $kamarA1->harga_dasar * 3,
-                'metode_bayar' => 'TRANSFER',
-                'catatan' => 'Booking untuk Budi',
-            ],
-            [
-                'kamar_id' => $kamarB1->id,
-                'user_id' => $siti->id,
-                'user_name' => $siti->name,
-                'tgl_masuk' => Carbon::now()->subDays(5)->toDateString(),
-                'tgl_keluar' => Carbon::now()->addMonths(6)->toDateString(),
-                'durasi_bulan' => 6,
-                'status' => 'DIHUNI',
-                'total' => $kamarB1->harga_dasar * 6,
-                'metode_bayar' => 'QRIS',
-                'catatan' => 'Booking untuk Siti',
-            ]
-        ];
+        $bookings = [];
 
         foreach ($bookings as $data) {
             $booking = Booking::create($data);
@@ -64,6 +39,6 @@ class BookingSeeder extends Seeder
             ]);
         }
 
-        $this->command->info('✅ BookingSeeder: ' . count($bookings) . ' booking & payments dibuat.');
+        $this->command->info('✅ BookingSeeder: ' . count($bookings) . ' booking & payments dibuat (Dikosongkan untuk testing awal).');
     }
 }
