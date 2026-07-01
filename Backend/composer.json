@@ -29,7 +29,8 @@
             "Database\\Seeders\\": "database/seeders/"
         },
         "classmap": [
-            "app/Services/Patterns"
+            "app/Services/Patterns",
+            "app/Services/Strategies"
         ]
     },
     "autoload-dev": {

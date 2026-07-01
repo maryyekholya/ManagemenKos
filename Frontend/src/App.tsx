@@ -224,11 +224,26 @@ export default function App() {
     .then(res => res.json())
     .then(data => {
       if (data.success && data.data) {
-        // Map displayPrice from backend to harga_aktif
-        const kamarsWithPricing = data.data.map((r: any) => ({
-          ...r,
-          harga_aktif: r.displayPrice || r.harga_dasar
-        }));
+        // Map displayPrice from backend to harga_aktif and ensure fasilitas is an array
+        const kamarsWithPricing = data.data.map((r: any) => {
+          let parsedFasilitas = r.fasilitas;
+          if (typeof parsedFasilitas === 'string') {
+            try {
+              const parsed = JSON.parse(parsedFasilitas);
+              parsedFasilitas = Array.isArray(parsed) ? parsed : parsedFasilitas.split(',').map((s: string) => s.trim());
+            } catch(e) {
+              parsedFasilitas = parsedFasilitas.split(',').map((s: string) => s.trim());
+            }
+          } else if (!Array.isArray(parsedFasilitas)) {
+            parsedFasilitas = [];
+          }
+
+          return {
+            ...r,
+            fasilitas: parsedFasilitas,
+            harga_aktif: r.displayPrice || r.harga_dasar
+          };
+        });
         dispatch({ type: 'SET_KAMARS', payload: kamarsWithPricing });
       }
     })

@@ -14,7 +14,7 @@ class UserSeeder extends Seeder
             // Admin (1)
             [
                 'name' => 'Sari Dewi',
-                'email' => 'sari.dewi@gmail.com',
+                'email' => 'admin@nestin.id',
                 'password' => Hash::make('password123'),
                 'role' => 'admin',
                 'phone' => '081234567890',
@@ -24,7 +24,7 @@ class UserSeeder extends Seeder
             // Manager (2)
             [
                 'name' => 'Hendra Wijaya',
-                'email' => 'hendra.wijaya@gmail.com',
+                'email' => 'mng_1@nestin.id',
                 'password' => Hash::make('password123'),
                 'role' => 'manager',
                 'phone' => '081234567891',
@@ -33,7 +33,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'Dian Permatasari',
-                'email' => 'dian.permata@gmail.com',
+                'email' => 'mng_2@nestin.id',
                 'password' => Hash::make('password123'),
                 'role' => 'manager',
                 'phone' => '081234567892',
